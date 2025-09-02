@@ -1,0 +1,9 @@
+django
+djangorestframework
+pyodbc
+django-mssql-backend
+python-dotenv
+django-cors-headers
+djangorestframework-simplejwt
+spacy
+mysqlclient
