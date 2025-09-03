@@ -7,3 +7,6 @@ django-cors-headers
 djangorestframework-simplejwt
 spacy
 mysqlclient
+google-generativeai
+python-dotenv
+django-filter

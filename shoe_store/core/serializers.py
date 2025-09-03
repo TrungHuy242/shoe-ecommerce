@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from .models import Product, Category, Brand, Image, Banner, Promotion, ProductPromotion, Customer, Cart, CartItem, Order, OrderDetail, Payment, Wishlist, Notification, FAQ, ChatBotConversation
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 #  # Thêm tất cả models
 
@@ -87,3 +88,9 @@ class ChatBotConversationSerializer(serializers.ModelSerializer):
     class Meta:
         model = ChatBotConversation
         fields = '__all__'
+
+class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
+    def validate(self, attrs):
+        data = super().validate(attrs)
+        data['role'] = self.user.customer.role if hasattr(self.user, 'customer') else 0
+        return data

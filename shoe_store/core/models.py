@@ -42,10 +42,12 @@ class Customer(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)  # Kết nối với auth
     name = models.CharField(max_length=100)
     email = models.CharField(max_length=100, unique=True)
-    password_hashed = models.CharField(max_length=255)  # Sử dụng User password
     phone = models.CharField(max_length=20)
     address = models.CharField(max_length=255)
-    role = models.CharField(max_length=20)  # 'customer' or 'admin'
+    role = models.IntegerField(choices=((0, 'Customer'), (1, 'Admin')), default=0)  # 0: khách, 1: admin
+
+    def __str__(self):
+        return self.name
 
 class Cart(models.Model):
     customer = models.ForeignKey(Customer, on_delete=models.CASCADE)
