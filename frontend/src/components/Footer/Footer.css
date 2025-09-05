@@ -1,0 +1,90 @@
+/* ================= Footer Professional ================= */
+.footer-container {
+  background-color: #111;
+  color: #fff;
+  padding: 4rem 2rem 2rem 2rem;
+  font-family: 'Poppins', sans-serif;
+}
+
+.footer-main {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 2rem;
+}
+
+.footer-section {
+  flex: 1 1 220px;
+}
+
+.footer-section h3, .footer-section h4 {
+  margin-bottom: 1rem;
+  font-weight: 600;
+}
+
+.footer-section.about p {
+  margin-bottom: 1rem;
+  line-height: 1.6;
+  color: #ccc;
+}
+
+.footer-section a {
+  display: block;
+  color: #fff;
+  text-decoration: none;
+  margin-bottom: 0.5rem;
+  transition: color 0.3s;
+}
+
+.footer-section a:hover {
+  color: #ff4500;
+}
+
+.footer-section.contact p {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #ccc;
+}
+
+.footer-section.contact p svg {
+  color: #ff4500;
+}
+
+.social-icons {
+  display: flex;
+  gap: 0.8rem;
+  margin-top: 1rem;
+}
+
+.social-icons a {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #222;
+  color: #fff;
+  transition: all 0.3s ease;
+}
+
+.social-icons a:hover {
+  background: #ff4500;
+  color: #fff;
+  transform: scale(1.1);
+}
+
+.footer-bottom {
+  text-align: center;
+  padding-top: 1.5rem;
+  border-top: 1px solid #333;
+  color: #888;
+  margin-top: 2rem;
+  font-size: 0.95rem;
+}
+
+@media (max-width: 1024px) {
+  .footer-main { flex-direction: column; gap: 2rem; }
+  .footer-section { flex: 1 1 100%; }
+}

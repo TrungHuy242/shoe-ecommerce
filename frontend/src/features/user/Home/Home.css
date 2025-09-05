@@ -1,0 +1,694 @@
+/* General */
+body {
+  font-family: 'Poppins', sans-serif;
+  margin: 0;
+  padding: 0;
+  background-color: #f9f9f9;
+  color: #333;
+}
+
+h1,h2,h3,h4 { margin:0; font-weight:600; }
+a { text-decoration:none; color:inherit; }
+
+.loading-text, .error-text { text-align:center; padding:2rem; font-size:1.2rem; }
+
+/* Banner */
+.banner-section {
+  position: relative;
+  height: 90vh;
+  background: url('../../../assets/images/Banner/banner1.png') center/cover no-repeat;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  overflow: hidden;
+}
+
+.banner-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to right, rgba(0,0,0,0.6), rgba(0,0,0,0.2));
+  z-index: 1;
+}
+
+.banner-content {
+  position: relative;
+  z-index: 2;
+  padding-left: 5%;
+  max-width: 600px;
+  animation: fadeSlideIn 1s ease-out;
+}
+
+.banner-title {
+  font-size: 3.5rem;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 1rem;
+  line-height: 1.2;
+}
+
+.banner-subtitle {
+  font-size: 1.25rem;
+  color: #f0f0f0;
+  margin-bottom: 2rem;
+  line-height: 1.5;
+}
+
+.banner-button {
+  display: inline-flex;
+  align-items: center;
+  background-color: #ff4500;
+  color: #fff;
+  font-weight: 600;
+  font-size: 1rem;
+  padding: 0.75rem 2rem;
+  border-radius: 50px;
+  transition: all 0.3s ease;
+  text-decoration: none;
+}
+
+.banner-button:hover {
+  background-color: #e03e00;
+  transform: translateY(-3px);
+}
+
+.button-icon {
+  margin-right: 0.5rem;
+}
+
+/* Animation */
+@keyframes fadeSlideIn {
+  0% { opacity: 0; transform: translateX(-50px); }
+  100% { opacity: 1; transform: translateX(0); }
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+  .banner-title { font-size: 2.8rem; }
+  .banner-subtitle { font-size: 1.1rem; }
+}
+
+@media (max-width: 768px) {
+  .banner-section { justify-content: center; text-align: center; }
+  .banner-content { padding-left: 0; max-width: 90%; }
+  .banner-title { font-size: 2.2rem; }
+  .banner-subtitle { font-size: 1rem; }
+}
+
+
+/* ===== Section ===== */
+.categories-section {
+  padding: 5rem 2rem;
+  background: linear-gradient(135deg, #fdfbfb, #ebedee);
+  text-align: center;
+}
+
+.categories-header h2 {
+  font-size: 2.8rem;
+  font-weight: 900;
+  color: #111827;
+  margin-bottom: 0.5rem;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+}
+
+.categories-header p {
+  font-size: 1.2rem;
+  color: #4b5563;
+  margin-bottom: 3rem;
+}
+
+/* ===== Grid ===== */
+.categories-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* ===== Card ===== */
+.category-card {
+  position: relative;
+  overflow: hidden;
+  border-radius: 1.5rem;
+  box-shadow: 0 12px 30px rgba(0,0,0,0.1);
+  transition: transform 0.4s ease, box-shadow 0.4s ease;
+  text-decoration: none;
+  color: inherit;
+}
+
+.category-card:hover {
+  transform: translateY(-10px);
+  box-shadow: 0 20px 50px rgba(0,0,0,0.2);
+}
+
+/* ===== Image ===== */
+.category-image {
+  position: relative;
+  width: 100%;
+  height: 360px; /* to và ngầu */
+  overflow: hidden;
+}
+
+.category-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.6s ease;
+}
+
+.category-card:hover img {
+  transform: scale(1.1);
+}
+
+/* ===== Gradient Overlay ===== */
+.category-gradient {
+  position: absolute;
+  bottom: 0; left: 0;
+  width: 100%; height: 50%;
+  background: linear-gradient(to top, rgba(0,0,0,0.6), rgba(0,0,0,0));
+}
+
+/* ===== Title ===== */
+.category-image h3 {
+  position: absolute;
+  bottom: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  color: #fff;
+  font-size: 1.6rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  text-shadow: 0 4px 12px rgba(0,0,0,0.5);
+  z-index: 2;
+}
+
+
+
+/* ================== Featured Products Section ================== */
+.featured-products-section { 
+  padding: 5rem 2rem; 
+  background: linear-gradient(135deg, #f0f4ff 0%, #fffaf0 100%);
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+/* ================= Section Header ================= */
+.section-header { 
+  display: flex; 
+  justify-content: space-between; 
+  align-items: center; 
+  margin-bottom: 3rem; 
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.section-header h2 { 
+  font-size: 2.6rem; 
+  font-weight: 800; 
+  color: #1f2937; 
+  text-transform: uppercase; 
+  letter-spacing: 2px; 
+  position: relative;
+}
+
+.section-header h2::after {
+  content: '';
+  position: absolute;
+  width: 50px;
+  height: 3px;
+  background: linear-gradient(90deg, #ff7f50, #ff4500);
+  bottom: -10px;
+  left: 0;
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+.section-header h2:hover::after {
+  width: 100px;
+}
+
+.view-all { 
+  display: inline-flex;
+  align-items: center;
+  color: #ff4500; 
+  font-weight: 600; 
+  text-decoration: none; 
+  font-size: 1.05rem;
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+.view-all .arrow {
+  display: inline-block;
+  margin-left: 5px;
+  transition: transform 0.3s ease;
+}
+
+.view-all:hover {
+  color: #e63e00;
+}
+
+.view-all:hover .arrow {
+  transform: translateX(5px) rotate(10deg);
+}
+
+/* Products Grid */
+.products-grid { 
+  display: flex; 
+  flex-wrap: wrap; 
+  gap: 2rem; 
+  justify-content: center; 
+}
+
+/* Product Card */
+.product-card { 
+  flex: 1 1 22%; 
+  background: #fff; 
+  border-radius: 1rem; 
+  overflow: hidden;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.1); 
+  transition: transform 0.4s ease, box-shadow 0.4s ease; 
+  position: relative; 
+  cursor: pointer;
+}
+
+.product-card:hover { 
+  transform: translateY(-10px) scale(1.03); 
+  box-shadow: 0 20px 50px rgba(0,0,0,0.25); 
+}
+
+/* Image Wrapper */
+.product-image-wrapper { 
+  position: relative; 
+  overflow: hidden; 
+  border-radius: 1rem 1rem 0 0;
+}
+
+.product-image-wrapper {
+  position: relative;
+  width: 100%;
+  height: 250px;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+  background: #f9f9f9;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.product-image-wrapper img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.6s ease;
+}
+
+/* Gradient overlay khi hover */
+.product-image-wrapper::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: linear-gradient(to top, rgba(0,0,0,0.4), rgba(0,0,0,0));
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+
+/* ================= Heart Icon – viền theo hình trái tim ================= */
+.product-actions {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 2;
+}
+
+.product-actions svg {
+  width: 32px;
+  height: 24px;
+  font-size: 1.2rem;
+  cursor: pointer;
+  color: #fff;
+  fill: none; /* chưa nhấn => không màu */
+  stroke: #ff0000;   
+  stroke-width: 10;
+  transition: transform 0.3s, fill 0.3s, stroke 0.3s;
+}
+
+.product-actions svg:hover {
+  transform: scale(1.2);
+  stroke: #ff4d4d; 
+}
+
+.product-heart.liked {
+  fill: #ff4500;  /* full màu đỏ khi nhấn */
+  stroke: #ff4500; /* viền đồng màu fill */
+  transform: scale(1.3);
+  animation: pulseHeart 0.4s ease;
+}
+
+@keyframes pulseHeart {
+  0%   { transform: scale(1.2); }
+  50%  { transform: scale(1.4); }
+  100% { transform: scale(1.3); }
+}
+
+/* Product Info */
+.product-info { 
+  padding: 1rem 1.2rem; 
+  display: flex; 
+  flex-direction: column; 
+  gap: 0.8rem;
+}
+
+.info-top {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.info-top h4 {
+  font-weight: 700;
+  font-size: 1.2rem;
+  color: #222222;             /* chữ đậm, dễ đọc */
+  margin: 0;
+  letter-spacing: 0.5px;      /* tạo cảm giác cao cấp */
+  line-height: 1.4;
+  transition: color 0.3s;
+}
+
+.info-top h4:hover {
+  color: #ff4500;             /* hover đổi màu nhẹ */
+}
+
+.rating {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.rating-stars {
+  display: flex;
+  gap: 3px;
+  font-size: 1.2rem;
+  background: linear-gradient(45deg, #ffea00, #ffc107, #ffb300, #ffea00);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: shine 2s linear infinite;
+  position: relative;
+  filter: drop-shadow(0 0 4px rgba(255, 215, 0, 0.7));
+}
+
+@keyframes shine {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 100% 50%; }
+}
+
+
+.reviews {
+  font-size: 0.85rem;
+  color: #6b7280;             /* màu xám nhạt */
+  font-weight: 500;
+}
+
+
+/* Price + Cart row */
+.price-cart-row { 
+  display:flex; 
+  justify-content: space-between; 
+  align-items: center; 
+  margin-top: 0.5rem;
+}
+
+.price-block { display:flex; flex-direction: column; gap:0.2rem; }
+
+.original-price { 
+  text-decoration: line-through; 
+  color:#9ca3af; 
+  font-size:0.95rem; 
+}
+
+.product-price { 
+  color:#ff4500; 
+  font-weight:bold; 
+  font-size:1.2rem; 
+}
+
+/* ================= Add to Cart Button ================= */
+.add-to-cart {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  background: linear-gradient(135deg, #ff7f50, #ff4500);
+  color: #fff;
+  border: none;
+  padding: 0.6rem 1.2rem;
+  font-weight: 600;
+  font-size: 1rem;
+  border-radius: 1rem; /* bo tròn đẹp */
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.4s ease;
+  box-shadow: 0 5px 15px rgba(255, 69, 0, 0.4);
+}
+
+.add-to-cart::after {
+  content: '';
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  top: 0;
+  left: -100%;
+  background: rgba(255,255,255,0.2);
+  transform: skewX(-20deg);
+  transition: all 0.5s ease;
+}
+
+.add-to-cart:hover::after {
+  left: 200%;
+}
+
+.add-to-cart:hover {
+  transform: scale(1.08);
+  box-shadow: 0 8px 20px rgba(255, 69, 0, 0.5);
+}
+
+.cart-icon {
+  font-size: 1.2rem;
+  transition: transform 0.3s ease;
+}
+
+.add-to-cart:hover .cart-icon {
+  transform: rotate(-15deg) scale(1.2);
+}
+
+
+/* Responsive */
+@media (max-width: 1024px) { 
+  .product-card { flex: 1 1 45%; } 
+}
+
+@media (max-width: 640px) { 
+  .product-card { flex: 1 1 90%; } 
+}
+
+
+/* ================== Promo Section – Refined Premium ================== */
+.promo-section {
+  position: relative;
+  background: url('../../../assets/images/Banner/bg-promo.png') center/cover no-repeat;
+  padding: 7rem 2rem;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+}
+
+/* Overlay gradient + blur nhẹ */
+.promo-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    rgba(0, 0, 0, 0.55),
+    rgba(0, 0, 0, 0.4)
+  );
+  backdrop-filter: blur(3px);
+  z-index: 1;
+}
+
+/* Glass Card – rộng hơn để text không xuống dòng xấu */
+.promo-card {
+  position: relative;
+  z-index: 2;
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(8px);
+  padding: 3rem 3rem;
+  border-radius: 1.5rem;
+  max-width: 750px;
+  width: 100%;
+  text-align: center;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
+  animation: fadeInUp 1s ease;
+  line-height: 1.5;
+}
+
+/* Tiêu đề – font vừa phải, không bị xuống dòng */
+.promo-card h2 {
+  font-size: 1.8rem;
+  font-weight: 800;
+  color: #ff4500;
+  margin-bottom: 1rem;
+  letter-spacing: 0.5px;
+  line-height: 1.3;
+  white-space: normal;
+}
+
+/* Đoạn mô tả */
+.promo-card p {
+  font-size: 1.05rem;
+  color: #333;
+  margin-bottom: 2rem;
+  opacity: 0.9;
+  max-width: 90%;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* Nhóm input */
+.promo-input-group {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.promo-icon {
+  color: #ff4500;
+  font-size: 1.2rem;
+}
+
+.promo-input-group input {
+  padding: 0.7rem 1rem 0.7rem 2.5rem;
+  border-radius: 0.6rem;
+  border: 1px solid #ddd;
+  width: 260px;
+  font-size: 1rem;
+  outline: none;
+  transition: all 0.3s ease;
+}
+
+.promo-input-group input:focus {
+  border-color: #ff4500;
+  box-shadow: 0 0 10px rgba(255, 69, 0, 0.4);
+}
+
+/* Button CTA */
+.promo-input-group button {
+  padding: 0.75rem 1.6rem;
+  background: linear-gradient(90deg, #ff7a00, #ff4500);
+  border: none;
+  color: #fff;
+  font-weight: 700;
+  border-radius: 0.6rem;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+  box-shadow: 0 4px 12px rgba(255, 69, 0, 0.4);
+}
+
+.promo-input-group button:hover {
+  transform: translateY(-3px) scale(1.07);
+  box-shadow: 0 8px 18px rgba(255, 69, 0, 0.6);
+}
+
+/* Animation */
+@keyframes fadeInUp {
+  0% { opacity: 0; transform: translateY(50px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+
+
+/* ================== Testimonials Section ================== */
+.testimonials-section {
+  padding: 5rem 2rem;
+  background: #fffaf0; /* nhẹ nhàng, giống Featured Products */
+  text-align: center;
+}
+
+.testimonials-section h2 {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #1f2937;
+  margin-bottom: 3rem;
+}
+
+.testimonials-grid {
+  display: flex;
+  gap: 2rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.testimonial-card {
+  background: #fff;
+  flex: 1 1 300px;
+  border-radius: 1rem;
+  padding: 1.5rem;
+  box-shadow: 0 8px 25px rgba(0,0,0,0.08);
+  text-align: left;
+  transition: transform 0.3s, box-shadow 0.3s;
+}
+
+.testimonial-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 15px 35px rgba(0,0,0,0.12);
+}
+
+.testimonial-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.testimonial-avatar {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid #ff4500;
+}
+
+.testimonial-info h4 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin: 0;
+  color: #1f2937;
+}
+
+.testimonial-rating {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  color: #ff4500;
+  font-size: 0.9rem;
+}
+
+.testimonial-rating span {
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.testimonial-comment {
+  margin-top: 0.8rem;
+  font-size: 0.95rem;
+  color: #374151;
+  line-height: 1.5;
+}
+
+/* Responsive */
+@media (max-width:1024px) { .product-card,.category-card,.testimonial-card { flex:1 1 45%; } }
+@media (max-width:768px) { .product-card,.category-card,.testimonial-card { flex:1 1 100%; } .banner-section { padding-left:2rem; } }

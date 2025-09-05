@@ -1,0 +1,29 @@
+.card {
+  border: 1px solid #D2B48C;
+  border-radius: 8px;
+  padding: 1rem;
+  text-align: center;
+  background-color: #FFFFFF;
+  width: 250px;
+  transition: transform 0.2s;
+}
+
+.card:hover {
+  transform: scale(1.05);
+}
+
+.product-image {
+  width: 100%;
+  height: auto;
+}
+
+button {
+  background-color: #D2B48C;
+  color: white;
+  border: none;
+  padding: 0.5rem;
+}
+
+s {
+  text-decoration: line-through;
+}
