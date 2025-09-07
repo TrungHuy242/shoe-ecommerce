@@ -21,26 +21,26 @@ const Header = () => {
         </nav>
 
         {/* User actions */}
-        <div className="user-actions">
+        <div className="user-actions-header">
           {/* Search */}
-          <div className="search-box">
-            <Search className="search-icon" size={18} />
+          <div className="search-box-header">
+            <Search className="search-icon-header" size={18} />
             <input type="text" placeholder="Tìm kiếm..." />
           </div>
 
           {/* Wishlist */}
-          <button className="icon-btn">
+          <Link to="/wishlist" className="icon-btn-header">
             <Heart size={22} />
-          </button>
+          </Link>
 
           {/* Cart */}
-          <button className="icon-btn cart-btn">
+          <Link to="/cart" className="icon-btn-header cart-btn-header">
             <ShoppingCart size={22} />
-            <span className="cart-count">3</span>
-          </button>
+            <span className="cart-count-header">3</span>
+          </Link>
 
           {/* Login */}
-          <Link to="/login" className="login-btn">
+          <Link to="/login" className="login-btn-header">
             <User size={18} />
             <span>Đăng nhập</span>
           </Link>

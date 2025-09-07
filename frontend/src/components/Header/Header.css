@@ -47,17 +47,17 @@
 }
 
 /* User actions */
-.user-actions {
+.user-actions-header {
   display: flex;
   align-items: center;
   gap: 16px;
 }
 
 /* Search box */
-.search-box {
+.search-box-header {
   position: relative;
 }
-.search-box input {
+.search-box-header input {
   padding: 8px 36px 8px 36px;
   border: 1px solid #ddd;
   border-radius: 50px;
@@ -66,10 +66,10 @@
   transition: border 0.3s ease;
   width: 180px;
 }
-.search-box input:focus {
+.search-box-header input:focus {
   border: 1px solid #ff6600;
 }
-.search-icon {
+.search-icon-header {
   position: absolute;
   top: 50%;
   left: 12px;
@@ -78,7 +78,7 @@
 }
 
 /* Icon button chung */
-.icon-btn {
+.icon-btn-header {
   background: none;
   border: none;
   cursor: pointer;
@@ -86,15 +86,15 @@
   color: #333;
   transition: color 0.3s ease;
 }
-.icon-btn:hover {
+.icon-btn-header:hover {
   color: #ff6600;
 }
 
 /* Cart badge */
-.cart-btn {
+.cart-btn-header {
   position: relative;
 }
-.cart-count {
+.cart-count-header {
   position: absolute;
   top: -6px;
   right: -6px;
@@ -107,7 +107,7 @@
 }
 
 /* Login button */
-.login-btn {
+.login-btn-header {
   background: #ff6600;
   color: #fff;
   font-weight: 500;
@@ -119,6 +119,6 @@
   gap: 6px;
   transition: background 0.3s ease;
 }
-.login-btn:hover {
+.login-btn-header:hover {
   background: #e65500;
 }

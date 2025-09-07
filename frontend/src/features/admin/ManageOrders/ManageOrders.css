@@ -1,0 +1,602 @@
+.ord-manage-orders-page {
+  min-height: 100vh;
+  background-color: #f8fafc;
+  padding: 2rem 0;
+  font-family: 'Inter', sans-serif;
+}
+
+.ord-manage-orders-container {
+  max-width: 1600px;
+  margin: 0 auto;
+  padding: 0 2rem;
+}
+
+/* Loading State */
+.ord-loading-state {
+  text-align: center;
+  padding: 4rem 2rem;
+}
+
+.ord-spinner-large {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #e2e8f0;
+  border-top: 4px solid #667eea;
+  border-radius: 50%;
+  animation: ord-spin 1s linear infinite;
+  margin: 0 auto 1rem;
+}
+
+@keyframes ord-spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Page Header */
+.ord-page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: white;
+  border-radius: 16px;
+  padding: 2rem;
+  margin-bottom: 2rem;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
+}
+
+.ord-header-left h1 {
+  font-size: 2.2rem;
+  font-weight: 800;
+  color: #1a202c;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.ord-title-icon {
+  color: #667eea;
+  font-size: 2rem;
+}
+
+.ord-header-left p {
+  color: #718096;
+  font-size: 1.1rem;
+  margin: 0;
+}
+
+.ord-export-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: #38a169;
+  color: white;
+  padding: 1rem 2rem;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.ord-export-btn:hover {
+  background: #2f855a;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(56, 161, 105, 0.3);
+}
+
+/* Stats Summary */
+.ord-stats-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.ord-stat-item {
+  background: white;
+  border-radius: 12px;
+  padding: 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.06);
+  transition: all 0.3s ease;
+}
+
+.ord-stat-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+}
+
+.ord-stat-icon {
+  width: 50px;
+  height: 50px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 1.2rem;
+}
+
+.ord-stat-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.ord-stat-number {
+  font-size: 1.8rem;
+  font-weight: 800;
+  color: #1a202c;
+  line-height: 1;
+}
+
+.ord-stat-label {
+  font-size: 0.85rem;
+  color: #718096;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Filters Section */
+.ord-filters-section {
+  background: white;
+  border-radius: 16px;
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
+}
+
+.ord-search-and-sort {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.ord-search-box {
+  position: relative;
+  flex: 1;
+  min-width: 350px;
+}
+
+.ord-search-box input {
+  width: 100%;
+  padding: 0.75rem 1rem 0.75rem 2.5rem;
+  border: 2px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+.ord-search-box input:focus {
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.ord-search-icon {
+  position: absolute;
+  left: 1rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #a0aec0;
+  font-size: 0.9rem;
+}
+
+.ord-filter-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: #f7fafc;
+  color: #4a5568;
+  border: 1px solid #e2e8f0;
+  padding: 0.75rem 1.25rem;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.ord-filter-toggle:hover {
+  background: #edf2f7;
+  border-color: #cbd5e0;
+}
+
+.ord-filter-toggle.ord-active {
+  background: #667eea;
+  color: white;
+  border-color: #667eea;
+}
+
+.ord-sort-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.ord-sort-controls select {
+  padding: 0.75rem 1rem;
+  border: 2px solid #e2e8f0;
+  border-radius: 8px;
+  background: white;
+  font-size: 0.9rem;
+  cursor: pointer;
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+.ord-sort-controls select:focus {
+  border-color: #667eea;
+}
+
+.ord-sort-order-btn {
+  background: #f7fafc;
+  color: #4a5568;
+  border: 1px solid #e2e8f0;
+  padding: 0.75rem;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.ord-sort-order-btn:hover {
+  background: #edf2f7;
+  border-color: #cbd5e0;
+}
+
+.ord-filter-options {
+  display: flex;
+  gap: 2rem;
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid #e2e8f0;
+}
+
+.ord-filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.ord-filter-group label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #4a5568;
+}
+
+.ord-filter-group select {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  background: white;
+  cursor: pointer;
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+.ord-filter-group select:focus {
+  border-color: #667eea;
+}
+
+/* Bulk Actions */
+.ord-bulk-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #f0f4ff;
+  border: 1px solid #c7d2fe;
+  padding: 1rem 1.5rem;
+  border-radius: 8px;
+  margin-bottom: 1.5rem;
+}
+
+.ord-bulk-actions span {
+  color: #4a5568;
+  font-weight: 500;
+}
+
+.ord-bulk-action-buttons {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.ord-bulk-action-buttons button {
+  padding: 0.5rem 1rem;
+  border: none;
+  background: #667eea;
+  color: white;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.ord-bulk-action-buttons button:hover {
+  background: #5a67d8;
+}
+
+/* Orders Table */
+.ord-orders-table-container {
+  background: white;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
+  margin-bottom: 2rem;
+}
+
+.ord-orders-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.ord-orders-table th {
+  background: #f7fafc;
+  padding: 1rem;
+  text-align: left;
+  font-weight: 600;
+  color: #4a5568;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.ord-orders-table th.ord-sortable {
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.ord-orders-table th.ord-sortable:hover {
+  background: #edf2f7;
+}
+
+.ord-orders-table th.ord-sortable svg {
+  margin-left: 0.5rem;
+  color: #a0aec0;
+  font-size: 0.75rem;
+}
+
+.ord-orders-table td {
+  padding: 1rem;
+  border-bottom: 1px solid #f1f5f9;
+  vertical-align: middle;
+}
+
+.ord-orders-table tr:hover {
+  background: #f7fafc;
+}
+
+.ord-orders-table tr:last-child td {
+  border-bottom: none;
+}
+
+/* Order Link */
+.ord-order-link {
+  color: #667eea;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.ord-order-link:hover {
+  text-decoration: underline;
+}
+
+/* Customer Info */
+.ord-customer-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.ord-customer-name {
+  font-weight: 600;
+  color: #2d3748;
+  font-size: 0.95rem;
+}
+
+.ord-customer-email {
+  color: #718096;
+  font-size: 0.8rem;
+}
+
+/* Total Amount */
+.ord-total-amount {
+  font-weight: 700;
+  color: #2d3748;
+  font-size: 1rem;
+}
+
+/* Status Select */
+.ord-status-select {
+  padding: 0.5rem 0.75rem;
+  border: 2px solid;
+  border-radius: 20px;
+  background: white;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  outline: none;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Payment Badge */
+.ord-payment-badge {
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: white;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  display: inline-block;
+}
+
+/* Order Date */
+.ord-order-date {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #718096;
+  font-size: 0.85rem;
+}
+
+/* Action Buttons */
+.ord-action-buttons {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.ord-action-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  transition: all 0.2s ease;
+  text-decoration: none;
+}
+
+.ord-view-btn {
+  background: #f7fafc;
+  color: #4a5568;
+  border: 1px solid #e2e8f0;
+}
+
+.ord-view-btn:hover {
+  background: #edf2f7;
+  border-color: #cbd5e0;
+}
+
+.ord-print-btn {
+  background: #667eea;
+  color: white;
+}
+
+.ord-print-btn:hover {
+  background: #5a67d8;
+}
+
+/* Pagination */
+.ord-pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.5rem;
+  background: white;
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.06);
+}
+
+.ord-page-btn {
+  padding: 0.75rem 1rem;
+  border: 1px solid #e2e8f0;
+  background: white;
+  color: #4a5568;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  min-width: 40px;
+}
+
+.ord-page-btn:hover:not(:disabled) {
+  background: #f7fafc;
+  border-color: #cbd5e0;
+}
+
+.ord-page-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ord-page-btn.ord-active {
+  background: #667eea;
+  color: white;
+  border-color: #667eea;
+}
+
+/* Responsive */
+@media (max-width: 1200px) {
+  .ord-orders-table {
+    font-size: 0.9rem;
+  }
+  
+  .ord-customer-info {
+    max-width: 150px;
+  }
+}
+
+@media (max-width: 1024px) {
+  .ord-page-header {
+    flex-direction: column;
+    gap: 1rem;
+    align-items: flex-start;
+  }
+  
+  .ord-search-and-sort {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .ord-search-box {
+    min-width: auto;
+  }
+  
+  .ord-filter-options {
+    flex-direction: column;
+    gap: 1rem;
+  }
+  
+  .ord-stats-summary {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .ord-manage-orders-container {
+    padding: 0 1rem;
+  }
+  
+  .ord-page-header {
+    padding: 1.5rem;
+  }
+  
+  .ord-header-left h1 {
+    font-size: 1.8rem;
+  }
+  
+  .ord-orders-table-container {
+    overflow-x: auto;
+  }
+  
+  .ord-orders-table {
+    min-width: 900px;
+  }
+  
+  .ord-stats-summary {
+    grid-template-columns: 1fr;
+  }
+  
+  .ord-bulk-actions {
+    flex-direction: column;
+    gap: 1rem;
+    align-items: stretch;
+  }
+  
+  .ord-bulk-action-buttons {
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+}

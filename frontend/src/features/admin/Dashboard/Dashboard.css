@@ -1,0 +1,568 @@
+.adm-dashboard-page {
+  min-height: 100vh;
+  background-color: #f8fafc;
+  padding: 2rem 0;
+  font-family: 'Inter', sans-serif;
+}
+
+.adm-dashboard-container {
+  max-width: 1600px;
+  margin: 0 auto;
+  padding: 0 2rem;
+}
+
+/* Loading State */
+.adm-loading-state {
+  text-align: center;
+  padding: 4rem 2rem;
+}
+
+.adm-spinner-large {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #e2e8f0;
+  border-top: 4px solid #667eea;
+  border-radius: 50%;
+  animation: adm-spin 1s linear infinite;
+  margin: 0 auto 1rem;
+}
+
+@keyframes adm-spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Header */
+.adm-dashboard-header {
+  background: white;
+  border-radius: 16px;
+  padding: 2rem;
+  margin-bottom: 2rem;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
+}
+
+.adm-header-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.adm-dashboard-header h1 {
+  font-size: 2.2rem;
+  font-weight: 800;
+  color: #1a202c;
+  margin: 0;
+}
+
+.adm-time-filter select {
+  padding: 0.75rem 1rem;
+  border: 2px solid #e2e8f0;
+  border-radius: 8px;
+  background: white;
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: #4a5568;
+  cursor: pointer;
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+.adm-time-filter select:focus {
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+/* Stats Grid */
+.adm-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.adm-stat-card {
+  background: white;
+  border-radius: 16px;
+  padding: 2rem;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  transition: all 0.3s ease;
+}
+
+.adm-stat-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.15);
+}
+
+.adm-stat-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.8rem;
+  color: white;
+}
+
+.adm-stat-card.adm-revenue .adm-stat-icon {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+}
+
+.adm-stat-card.adm-orders .adm-stat-icon {
+  background: linear-gradient(135deg, #f093fb, #f5576c);
+}
+
+.adm-stat-card.adm-customers .adm-stat-icon {
+  background: linear-gradient(135deg, #4facfe, #00f2fe);
+}
+
+.adm-stat-card.adm-products .adm-stat-icon {
+  background: linear-gradient(135deg, #43e97b, #38f9d7);
+}
+
+.adm-stat-content {
+  flex: 1;
+}
+
+.adm-stat-content h3 {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #718096;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 0.5rem;
+}
+
+.adm-stat-value {
+  font-size: 2rem;
+  font-weight: 800;
+  color: #1a202c;
+  margin-bottom: 0.75rem;
+}
+
+.adm-stat-growth {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.adm-stat-growth.adm-positive {
+  color: #38a169;
+}
+
+.adm-stat-growth.adm-negative {
+  color: #e53e3e;
+}
+
+/* Metrics Grid */
+.adm-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 3rem;
+}
+
+.adm-metric-card {
+  background: white;
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.06);
+  transition: all 0.3s ease;
+}
+
+.adm-metric-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+}
+
+.adm-metric-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.adm-metric-header h4 {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #4a5568;
+  margin: 0;
+}
+
+.adm-metric-icon {
+  color: #a0aec0;
+  font-size: 1.2rem;
+}
+
+.adm-metric-value {
+  font-size: 1.8rem;
+  font-weight: 800;
+  color: #1a202c;
+  margin-bottom: 0.5rem;
+}
+
+.adm-metric-description {
+  font-size: 0.8rem;
+  color: #718096;
+  line-height: 1.4;
+}
+
+/* Dashboard Content */
+.adm-dashboard-content {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 2rem;
+}
+
+.adm-dashboard-section {
+  background: white;
+  border-radius: 16px;
+  padding: 2rem;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
+}
+
+.adm-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.adm-section-header h3 {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: #1a202c;
+  margin: 0;
+}
+
+.adm-view-all-link {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #667eea;
+  text-decoration: none;
+  font-weight: 500;
+  font-size: 0.9rem;
+  transition: color 0.2s ease;
+}
+
+.adm-view-all-link:hover {
+  color: #5a67d8;
+}
+
+/* Orders Table */
+.adm-orders-table {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.adm-table-header {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 1fr 1.2fr;
+  gap: 1rem;
+  padding: 1rem 0;
+  border-bottom: 2px solid #f1f5f9;
+  font-weight: 600;
+  color: #4a5568;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.adm-table-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 1fr 1.2fr;
+  gap: 1rem;
+  padding: 1rem 0;
+  border-bottom: 1px solid #f7fafc;
+  transition: all 0.2s ease;
+}
+
+.adm-table-row:hover {
+  background: #f7fafc;
+  margin: 0 -1rem;
+  padding: 1rem;
+  border-radius: 8px;
+}
+
+.adm-table-row:last-child {
+  border-bottom: none;
+}
+
+.adm-order-id a {
+  color: #667eea;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.adm-order-id a:hover {
+  text-decoration: underline;
+}
+
+.adm-customer-name {
+  color: #2d3748;
+  font-weight: 500;
+}
+
+.adm-order-total {
+  color: #1a202c;
+  font-weight: 700;
+}
+
+.adm-status-badge {
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: white;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  display: inline-block;
+}
+
+.adm-order-date {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #718096;
+  font-size: 0.85rem;
+}
+
+/* Products Grid */
+.adm-products-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.5rem;
+}
+
+.adm-product-card {
+  display: flex;
+  gap: 1.5rem;
+  padding: 1.5rem;
+  background: #f7fafc;
+  border-radius: 12px;
+  transition: all 0.2s ease;
+}
+
+.adm-product-card:hover {
+  background: #edf2f7;
+  transform: translateY(-1px);
+}
+
+.adm-product-image {
+  position: relative;
+  width: 80px;
+  height: 80px;
+  flex-shrink: 0;
+}
+
+.adm-product-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 8px;
+}
+
+.adm-stock-indicator {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  background: #38a169;
+  color: white;
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 0.25rem 0.5rem;
+  border-radius: 12px;
+}
+
+.adm-stock-indicator.adm-low {
+  background: #e53e3e;
+}
+
+.adm-product-info {
+  flex: 1;
+}
+
+.adm-product-info h4 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #1a202c;
+  margin-bottom: 1rem;
+  line-height: 1.4;
+}
+
+.adm-product-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.adm-product-stats .adm-stat {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.85rem;
+}
+
+.adm-product-stats .adm-stat span {
+  color: #718096;
+}
+
+.adm-product-stats .adm-stat strong {
+  color: #2d3748;
+}
+
+.adm-product-stats .adm-growth {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  justify-self: flex-end;
+}
+
+.adm-product-stats .adm-growth.adm-positive {
+  color: #38a169;
+}
+
+.adm-product-stats .adm-growth.adm-negative {
+  color: #e53e3e;
+}
+
+.adm-product-actions {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.adm-edit-btn,
+.adm-view-btn {
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  text-decoration: none;
+  font-size: 0.8rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.adm-edit-btn {
+  background: #667eea;
+  color: white;
+}
+
+.adm-edit-btn:hover {
+  background: #5a67d8;
+}
+
+.adm-view-btn {
+  background: #f7fafc;
+  color: #4a5568;
+  border: 1px solid #e2e8f0;
+}
+
+.adm-view-btn:hover {
+  background: #edf2f7;
+  border-color: #cbd5e0;
+}
+
+/* Responsive */
+@media (max-width: 1200px) {
+  .adm-dashboard-content {
+    grid-template-columns: 1fr;
+  }
+  
+  .adm-stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .adm-dashboard-container {
+    padding: 0 1rem;
+  }
+  
+  .adm-dashboard-header {
+    padding: 1.5rem;
+  }
+  
+  .adm-header-content {
+    flex-direction: column;
+    gap: 1rem;
+    align-items: flex-start;
+  }
+  
+  .adm-dashboard-header h1 {
+    font-size: 1.8rem;
+  }
+  
+  .adm-stats-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .adm-stat-card {
+    padding: 1.5rem;
+  }
+  
+  .adm-stat-icon {
+    width: 50px;
+    height: 50px;
+    font-size: 1.4rem;
+  }
+  
+  .adm-stat-value {
+    font-size: 1.6rem;
+  }
+  
+  .adm-dashboard-section {
+    padding: 1.5rem;
+  }
+  
+  .adm-table-header,
+  .adm-table-row {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
+  
+  .adm-table-header {
+    display: none;
+  }
+  
+  .adm-table-row {
+    background: #f7fafc;
+    padding: 1rem;
+    border-radius: 8px;
+    margin-bottom: 0.5rem;
+    border-bottom: none;
+  }
+  
+  .adm-table-row:hover {
+    margin-bottom: 0.5rem;
+  }
+  
+  .adm-product-card {
+    flex-direction: column;
+    text-align: center;
+  }
+  
+  .adm-product-image {
+    align-self: center;
+  }
+  
+  .adm-product-stats .adm-stat {
+    justify-content: center;
+    gap: 1rem;
+  }
+  
+  .adm-product-actions {
+    justify-content: center;
+  }
+}

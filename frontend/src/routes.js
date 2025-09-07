@@ -13,6 +13,7 @@ import ManageProducts from './features/admin/ManageProducts/ManageProducts';
 import ManageOrders from './features/admin/ManageOrders/ManageOrders';
 import ManageCustomers from './features/admin/ManageCustomers/ManageCustomers';
 import ChatbotDashboard from './features/admin/ChatbotDashboard/ChatbotDashboard';
+import Checkout from './features/user/Checkout/Checkout';
 import Login from './features/auth/Login';
 import Register from './features/auth/Register';
 import Chatbot from './components/Chatbot/Chatbot';
@@ -26,6 +27,7 @@ function AppRoutes() {
         <Route path="/product/:id" element={<ProductDetail />} />
         <Route path="/products" element={<Product />} />
         <Route path="/cart" element={<Cart />} />
+        <Route path="/checkout" element={<Checkout />} />
         <Route path="/wishlist" element={<Wishlist />} />
         <Route path="/orders" element={<OrderHistory />} />
         <Route path="/admin/dashboard" element={<Dashboard />} />
