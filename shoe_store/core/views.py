@@ -183,17 +183,22 @@ class ChatbotView(APIView):
 
 class CustomTokenObtainPairView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
+    def post(self, request, *args, **kwargs):
+        response = super().post(request, *args, **kwargs)
+        if response.status_code == status.HTTP_401_UNAUTHORIZED:
+            return Response({"detail": "Sai tài khoản hoặc mật khẩu"}, status=status.HTTP_401_UNAUTHORIZED)
+        return response
 
 class RegisterView(APIView):
     def post(self, request):
-        username = request.data.get('username')
-        password = request.data.get('password')
-        email = request.data.get('email')
-        name = request.data.get('name')
-
-        if User.objects.filter(username=username).exists():
-            return Response({"error": "Username đã tồn tại"}, status=status.HTTP_400_BAD_REQUEST)
-
-        user = User.objects.create_user(username=username, password=password, email=email)
-        Customer.objects.create(user=user, name=name, email=email, role=0)
-        return Response({"message": "Đăng ký thành công"}, status=status.HTTP_201_CREATED)
+        data = request.data
+        try:
+            if User.objects.filter(username=data['username']).exists():
+                return Response({"username": ["Tên đăng nhập đã tồn tại"]}, status=status.HTTP_400_BAD_REQUEST)
+            if User.objects.filter(email=data['email']).exists():
+                return Response({"email": ["Email đã tồn tại"]}, status=status.HTTP_400_BAD_REQUEST)
+            user = User.objects.create_user(username=data['username'], email=data['email'], password=data['password'])
+            Customer.objects.create(user=user, name=data['name'], email=data['email'], role=0)
+            return Response({"message": "Đăng ký thành công"}, status=status.HTTP_201_CREATED)
+        except Exception as e:
+            return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)

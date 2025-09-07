@@ -7,13 +7,19 @@ const api = axios.create({
   },
 });
 
-// Thêm token nếu đã đăng nhập
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token');
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
-});
+api.interceptors.request.use(
+  (config) => {
+    // Chỉ thêm token cho các endpoint cần xác thực (tránh /token/, /register/, /products/, /categories/)
+    if (config.url.includes('token') || config.url.includes('register') || config.url.includes('products') || config.url.includes('categories')) {
+      return config;
+    }
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
 
 export default api;

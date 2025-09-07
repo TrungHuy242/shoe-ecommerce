@@ -17,79 +17,12 @@ const Product = () => {
   });
   const [likedProducts, setLikedProducts] = useState(new Set());
 
-  // Mock data for development (remove when API is ready)
-  const mockProducts = [
-    {
-      id: 1,
-      name: "Sneaker Da Trắng",
-      price: 2490000,
-      originalPrice: 3100000,
-      image: "/assets/images/products/giày.jpg",
-      rating: 5,
-      reviews: 124,
-      isOnSale: false
-    },
-    {
-      id: 2,
-      name: "Cao Gót Nude",
-      price: 2890000,
-      originalPrice: 3200000,
-      image: "/assets/images/products/giày.jpg",
-      rating: 4,
-      reviews: 178,
-      isOnSale: false
-    },
-    {
-      id: 3,
-      name: "Oxford Da Đen",
-      price: 3990000,
-      originalPrice: 4500000,
-      image: "/assets/images/products/giày.jpg",
-      rating: 5,
-      reviews: 89,
-      isOnSale: false
-    },
-    {
-      id: 4,
-      name: "Sandal Da Tối Giản",
-      price: 1290000,
-      originalPrice: 1650000,
-      image: "/assets/images/products/giày.jpg",
-      rating: 4,
-      reviews: 43,
-      isOnSale: false
-    },
-    {
-      id: 5,
-      name: "Sneaker Nữ Trắng",
-      price: 2190000,
-      originalPrice: 2500000,
-      image: "/assets/images/products/giày.jpg",
-      rating: 5,
-      reviews: 94,
-      isOnSale: false
-    },
-    {
-      id: 6,
-      name: "Boots Da Đen",
-      price: 3290000,
-      originalPrice: 3700000,
-      image: "/assets/images/products/giày.jpg",
-      rating: 4,
-      reviews: 57,
-      isOnSale: false
-    }
-  ];
-
   useEffect(() => {
     const fetchProducts = async () => {
       try {
-        // Uncomment when API is ready
-        // const response = await api.get('products/', { params: filters });
-        // setProducts(response.data.results || []);
-        
-        // Using mock data for now
-        setProducts(mockProducts);
+        // Gửi bộ lọc qua query parameters
+        const response = await api.get('products/', { params: filters });
+        setProducts(response.data.results || []);
       } catch (err) {
         setError('Không thể tải sản phẩm. Vui lòng thử lại sau.');
         console.error('API Error:', err);
@@ -133,11 +66,10 @@ const Product = () => {
   return (
     <div className="product-page">
       {/* Header Section */}
-      {/* Header Section */}
       <div className="page-top">
         <div className="container">
           <div className="breadcrumb">
-            <Link to="/">🏠 Trang chủ</Link>
+            <Link to="/">Trang chủ</Link>
             <span>/</span>
             <span>Sản phẩm</span>
           </div>
@@ -151,8 +83,6 @@ const Product = () => {
           </div>
         </div>
       </div>
-
-
 
       <div className="product-container">
         {/* Sidebar Filters */}
@@ -260,7 +190,6 @@ const Product = () => {
           </div>
         </div>
 
-
         {/* Main Content */}
         <div className="main-content">
           {/* Sort Control */}
@@ -277,49 +206,46 @@ const Product = () => {
             </div>
           </div>
           {/* Products Grid */}
-            <div className="products-grid-container">
-              {products.map((product) => (
-                <div key={product.id} className="product-card-container">
-                  <Link to={`/product/${product.id}`} className="product-link-container">
-                    <div className="product-image-container">
-                      <img
-                        src="/assets/images/products/giày.jpg"
-                        alt={product.name}
-                        onError={(e) => { e.target.src = '/assets/images/products/placeholder-product.jpg'; }}
-                      />
-                      <button
-                        className={`product-heart ${likedProducts.has(product.id) ? 'liked' : ''}`}
-                        onClick={(e) => toggleLike(product.id, e)}
-                        aria-label="Like"
-                      >
-                        <FaHeart />
-                      </button>
+          <div className="products-grid-container">
+            {products.map((product) => (
+              <div key={product.id} className="product-card-container">
+                <Link to={`/product/${product.id}`} className="product-link-container">
+                  <div className="product-image-container">
+                    <img
+                      src={product.image || "https://via.placeholder.com/300x300?text=Product"}
+                      alt={product.name}
+                      onError={(e) => { e.target.src = "https://via.placeholder.com/300x300?text=Product"; }}
+                    />
+                    <button
+                      className={`product-heart ${likedProducts.has(product.id) ? 'liked' : ''}`}
+                      onClick={(e) => toggleLike(product.id, e)}
+                      aria-label="Like"
+                    >
+                      <FaHeart />
+                    </button>
+                  </div>
+                  <div className="product-info-container">
+                    <h3 className="product-name-container">{product.name}</h3>
+                    <div className="product-rating-container">
+                      {[...Array(5)].map((_, i) => (
+                        <FaStar key={i} className={i < product.rating ? "star filled" : "star"} />
+                      ))}
+                      <span className="review-count-container">({product.reviews})</span>
                     </div>
-                    <div className="product-info-container">
-                      <h3 className="product-name-container">{product.name}</h3>
-                      <div className="product-rating-container">
-                        {[...Array(5)].map((_, i) => (
-                          <FaStar key={i} className={i < product.rating ? "star filled" : "star"} />
-                        ))}
-                        <span className="review-count-container">({product.reviews})</span>
-                      </div>
-
-                      <div className="product-price-container">
-                        <span className="current-price-container">{product.price.toLocaleString()}đ</span>
-                        {product.originalPrice && product.originalPrice > product.price && (
-                          <span className="original-price-container">{product.originalPrice.toLocaleString()}đ</span>
-                        )}
-                      </div>
-
-                      <button className="add-to-cart-btn-container">
-                        <FaShoppingCart /> Thêm vào giỏ
-                      </button>
+                    <div className="product-price-container">
+                      <span className="current-price-container">{product.price.toLocaleString()}đ</span>
+                      {product.originalPrice && product.originalPrice > product.price && (
+                        <span className="original-price-container">{product.originalPrice.toLocaleString()}đ</span>
+                      )}
                     </div>
-                  </Link>
-                </div>
-              ))}
-            </div>
-
+                    <button className="add-to-cart-btn-container">
+                      <FaShoppingCart /> Thêm vào giỏ
+                    </button>
+                  </div>
+                </Link>
+              </div>
+            ))}
+          </div>
 
           {products.length === 0 && (
             <div className="no-products">

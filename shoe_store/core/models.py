@@ -3,6 +3,7 @@ from django.contrib.auth.models import User  # Sử dụng User built-in cho Cus
 
 class Category(models.Model):
     name = models.CharField(max_length=50)
+    image = models.ImageField(upload_to='categories/', null=True, blank=True)
     description = models.CharField(max_length=255)
 
 class Brand(models.Model):
@@ -13,16 +14,21 @@ class Product(models.Model):
     name = models.CharField(max_length=100)
     description = models.TextField()
     price = models.DecimalField(max_digits=10, decimal_places=2)
+    originalPrice = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    image = models.ImageField(upload_to='products/', null=True, blank=True)
     size = models.CharField(max_length=20)
     color = models.CharField(max_length=50)
     stock_quantity = models.IntegerField()
     category = models.ForeignKey(Category, on_delete=models.CASCADE)
     brand = models.ForeignKey(Brand, on_delete=models.CASCADE)
+    rating = models.FloatField(default=0.0)
+    reviews = models.IntegerField(default=0)
+    isOnSale = models.BooleanField(default=False)
 
 class Image(models.Model):
     url = models.CharField(max_length=255)
     alt_text = models.CharField(max_length=100)
-    product = models.ForeignKey(Product, on_delete=models.CASCADE)
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='images')
 
 class Banner(models.Model):
     image_url = models.CharField(max_length=255)

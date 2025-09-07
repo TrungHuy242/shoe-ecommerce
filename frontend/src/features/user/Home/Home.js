@@ -3,30 +3,12 @@ import { Link } from 'react-router-dom';
 import { FaHeart, FaShoppingCart, FaEnvelope, FaStar } from 'react-icons/fa';
 import api from '../../../services/api';
 import './Home.css';
-import maleShoesImg from '../../../assets/images/categories/giay-nam.jpg';
-import femaleShoesImg from '../../../assets/images/categories/giay-nu.jpg';
-
 
 const Home = () => {
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  // Hàm bỏ dấu tiếng Việt
-  const normalizeText = (str) => {
-    return str
-      .normalize("NFD") // tách dấu
-      .replace(/[\u0300-\u036f]/g, "") // bỏ dấu
-      .trim()
-      .toLowerCase();
-  };
-
-  const categoryImages = {
-    "giay nam": maleShoesImg,
-    "giay nu": femaleShoesImg,
-  };
-
-
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -69,45 +51,46 @@ const Home = () => {
       <section className="categories-section">
         <div className="categories-header">
           <h2>Khám Phá Danh Mục</h2>
-          <p>Chọn phong cách của bạn từ những bộ sưu tập nổi bật</p>
         </div>
         <div className="categories-grid">
-          {categories.length > 0 ? categories.slice(0, 3).map(cat => {
-            const img = categoryImages[normalizeText(cat.name)] || maleShoesImg;
-            return (
-              <Link to={`/categories/${cat.id}`} key={cat.id} className="category-card">
-                <div className="category-image">
-                  <img src={img} alt={cat.name} />
-                  <div className="category-gradient"></div>
-                  <h3>{cat.name}</h3>
-                </div>
-              </Link>
-            );
-          }) : <p>Không có danh mục nào.</p>}
+          {categories.length > 0 ? categories.slice(0, 3).map((cat) => (
+            <Link to={`/categories/${cat.id}`} key={cat.id} className="category-card">
+              <div className="category-image">
+                <img
+                  src={cat.image || "https://via.placeholder.com/300x300?text=Category"}
+                  alt={cat.name}
+                  onError={(e) => { e.target.src = "https://via.placeholder.com/300x300?text=Category"; }}
+                />
+                <div className="category-gradient"></div>
+                <h3>{cat.name}</h3>
+              </div>
+            </Link>
+          )) : <p>Không có danh mục nào.</p>}
         </div>
       </section>
-
-
-
 
       {/* Featured Products */}
       <section className="featured-products-section">
         <div className="section-header">
           <h2>Sản phẩm nổi bật</h2>
           <Link to="/products" className="view-all">
-            Xem tất cả 
-            <span className="arrow">→</span>
+            Xem tất cả <span className="arrow">→</span>
           </Link>
         </div>
         <div className="products-grid">
-          {products.length > 0 ? products.slice(0, 4).map(prod => (
+          {products.length > 0 ? products.slice(0, 4).map((prod) => (
             <div key={prod.id} className="product-card">
               <div className="product-image-wrapper">
-                <img src="/assets/images/products/giày.jpg" alt={prod.name} />
+                <img
+                  src={prod.image || "https://via.placeholder.com/300x300?text=Product"}
+                  alt={prod.name}
+                  onError={(e) => { e.target.src = "https://via.placeholder.com/300x300?text=Product"; }}
+                  className="product-image"
+                />
                 <div className="product-actions">
-                  <FaHeart 
-                    className="product-heart" 
-                    onClick={(e) => e.currentTarget.classList.toggle('liked')} 
+                  <FaHeart
+                    className="product-heart"
+                    onClick={(e) => e.currentTarget.classList.toggle('liked')}
                   />
                 </div>
               </div>
@@ -116,21 +99,23 @@ const Home = () => {
                   <h4>{prod.name}</h4>
                   <div className="rating">
                     <div className="rating-stars">
-                      <span>⭐</span>
-                      <span>⭐</span>
-                      <span>⭐</span>
-                      <span>⭐</span>
-                      <span>⭐</span>
+                      {Array.from({ length: 4 }, (_, i) => (
+                        <FaStar key={i} />
+                      ))}
                     </div>
                     <span className="reviews">(120)</span>
                   </div>
                 </div>
-
-
                 <div className="price-cart-row">
                   <div className="price-block">
-                    <span className="original-price">{prod.originalPrice?.toLocaleString()}đ</span>
-                    <span className="product-price">{prod.price.toLocaleString()}đ</span>
+                    {prod.originalPrice && (
+                      <span className="original-price">
+                        {prod.originalPrice.toLocaleString()}đ
+                      </span>
+                    )}
+                    <span className="product-price">
+                      {prod.price.toLocaleString()}đ
+                    </span>
                   </div>
                   <button className="add-to-cart">
                     <FaShoppingCart className="cart-icon" /> Thêm vào giỏ
@@ -156,11 +141,7 @@ const Home = () => {
         </div>
       </section>
 
-
-
-
-
-      {/* Testimonials Section – Professional */}
+      {/* Testimonials Section */}
       <section className="testimonials-section">
         <h2>Khách hàng nói gì về chúng tôi</h2>
         <div className="testimonials-grid">
