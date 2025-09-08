@@ -1,14 +1,39 @@
+# core/models.py
 from django.db import models
 from django.contrib.auth.models import User  # Sử dụng User built-in cho Customer sau
 
 class Category(models.Model):
-    name = models.CharField(max_length=50)
+    name = models.CharField(max_length=50, unique=True)
     image = models.ImageField(upload_to='categories/', null=True, blank=True)
     description = models.CharField(max_length=255)
+
+    def __str__(self):
+        return self.name
 
 class Brand(models.Model):
     name = models.CharField(max_length=50)
     logo_url = models.CharField(max_length=255)
+    
+    def __str__(self):
+        return self.name
+
+class Size(models.Model):
+    value = models.CharField(max_length=10, unique=True)
+    
+    def __str__(self):
+        return self.value
+
+class Color(models.Model):
+    value = models.CharField(max_length=20, unique=True)
+    
+    def __str__(self):
+        return self.value
+
+class Gender(models.Model):
+    name = models.CharField(max_length=20, unique=True, choices=[('nam', 'Nam'), ('nu', 'Nữ')])
+    
+    def __str__(self):
+        return self.name
 
 class Product(models.Model):
     name = models.CharField(max_length=100)
@@ -16,14 +41,18 @@ class Product(models.Model):
     price = models.DecimalField(max_digits=10, decimal_places=2)
     originalPrice = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     image = models.ImageField(upload_to='products/', null=True, blank=True)
-    size = models.CharField(max_length=20)
-    color = models.CharField(max_length=50)
     stock_quantity = models.IntegerField()
-    category = models.ForeignKey(Category, on_delete=models.CASCADE)
-    brand = models.ForeignKey(Brand, on_delete=models.CASCADE)
+    category = models.ForeignKey(Category, on_delete=models.CASCADE, related_name='products')
+    gender = models.ForeignKey(Gender, on_delete=models.CASCADE, related_name='products', null=True, blank=True)  # Cho phép null để migrate
+    brand = models.ForeignKey(Brand, on_delete=models.CASCADE, related_name='products')
+    sizes = models.ManyToManyField(Size, related_name='products')
+    colors = models.ManyToManyField(Color, related_name='products')
     rating = models.FloatField(default=0.0)
     reviews = models.IntegerField(default=0)
     isOnSale = models.BooleanField(default=False)
+
+    def __str__(self):
+        return self.name
 
 class Image(models.Model):
     url = models.CharField(max_length=255)

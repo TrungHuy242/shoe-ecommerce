@@ -17,7 +17,7 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from core.views import ProductViewSet, CategoryViewSet, BrandViewSet, BannerViewSet, ImageViewSet, ProductPromotionViewSet, PromotionViewSet, CustomerViewSet, CartItemViewSet, CartViewSet, OrderViewSet, OrderDetailViewSet ,PaymentViewSet, WishlistViewSet, NotificationViewSet, FAQViewSet,ChatBotConversationViewSet, ChatbotView,CustomTokenObtainPairView,RegisterView
+from core.views import ProductViewSet, CategoryViewSet, BrandViewSet, BannerViewSet, ImageViewSet, ProductPromotionViewSet, PromotionViewSet, CustomerViewSet, CartItemViewSet, CartViewSet, OrderViewSet, OrderDetailViewSet ,PaymentViewSet, WishlistViewSet, NotificationViewSet, FAQViewSet,ChatBotConversationViewSet, ChatbotView,CustomTokenObtainPairView,RegisterView, SizeViewSet, ColorViewSet, GenderViewSet
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from django.conf import settings
 from django.conf.urls.static import static
@@ -41,6 +41,10 @@ router.register(r'wishlists', WishlistViewSet),
 router.register(r'notifications', NotificationViewSet),
 router.register(r'faqs', FAQViewSet),
 router.register(r'chatbot-conversations', ChatBotConversationViewSet)
+router.register(r'sizes', SizeViewSet)
+router.register(r'colors', ColorViewSet)
+router.register(r'genders', GenderViewSet)
+
 
 urlpatterns = [
     path('admin/', admin.site.urls),

@@ -9,8 +9,8 @@ const api = axios.create({
 
 api.interceptors.request.use(
   (config) => {
-    // Chỉ thêm token cho các endpoint cần xác thực (tránh /token/, /register/, /products/, /categories/)
-    if (config.url.includes('token') || config.url.includes('register') || config.url.includes('products') || config.url.includes('categories')) {
+    // Chỉ thêm token cho các endpoint cần xác thực (tránh /token/, /register/, /products/, /categories/, /genders/, /sizes/, /colors/)
+    if (config.url.includes('token') || config.url.includes('register') || config.url.includes('products') || config.url.includes('categories') || config.url.includes('genders') || config.url.includes('sizes') || config.url.includes('colors')) {
       return config;
     }
     const token = localStorage.getItem('token');

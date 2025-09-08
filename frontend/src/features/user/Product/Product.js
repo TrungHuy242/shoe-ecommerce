@@ -6,36 +6,80 @@ import { FaHeart, FaStar, FaShoppingCart } from "react-icons/fa";
 
 const Product = () => {
   const [products, setProducts] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [genders, setGenders] = useState([]);
+  const [sizes, setSizes] = useState([]);
+  const [colors, setColors] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [filters, setFilters] = useState({
-    priceRange: '',
     category: '',
+    gender: '',
     size: '',
     color: '',
     brand: '',
+    priceRange: '',
+    isOnSale: '',
   });
   const [likedProducts, setLikedProducts] = useState(new Set());
 
   useEffect(() => {
-    const fetchProducts = async () => {
+    const fetchData = async () => {
       try {
-        // Gửi bộ lọc qua query parameters
-        const response = await api.get('products/', { params: filters });
-        setProducts(response.data.results || []);
+        const [productsResponse, categoriesResponse, gendersResponse, sizesResponse, colorsResponse] = await Promise.all([
+          api.get('products/', { params: transformFilters(filters) }),
+          api.get('categories/'),
+          api.get('genders/'),
+          api.get('sizes/'),
+          api.get('colors/'),
+        ]);
+        setProducts(productsResponse.data.results || []);
+        setCategories(categoriesResponse.data.results || []);
+        setGenders(gendersResponse.data.results || []);
+        setSizes(sizesResponse.data.results || []);
+        setColors(colorsResponse.data.results || []);
+        console.log('Products:', productsResponse.data.results); // Debug
+        console.log('Filters applied:', transformFilters(filters)); // Debug
       } catch (err) {
-        setError('Không thể tải sản phẩm. Vui lòng thử lại sau.');
-        console.error('API Error:', err);
+        setError('Không thể tải dữ liệu. Vui lòng thử lại sau.');
+        console.error('API Error:', err.response ? err.response.data : err.message);
       } finally {
         setLoading(false);
       }
     };
-    fetchProducts();
+    fetchData();
   }, [filters]);
+
+  // Chuyển đổi filters để khớp với backend
+  const transformFilters = (filters) => {
+    const transformed = { ...filters };
+    if (transformed.priceRange) {
+      const [min, max] = transformed.priceRange.split('-');
+      if (min && max === '+') {
+        transformed.price__gte = parseInt(min) * 1000; // Chuyển sang VND
+      } else if (min && max) {
+        transformed.price__gte = parseInt(min) * 1000;
+        transformed.price__lte = parseInt(max) * 1000;
+      } else if (min) {
+        transformed.price__lte = parseInt(min) * 1000;
+      }
+      delete transformed.priceRange;
+    }
+    if (transformed.size) transformed.sizes__value = transformed.size;
+    if (transformed.color) transformed.colors__value = transformed.color;
+    // Đảm bảo category, gender, brand được truyền đúng
+    transformed.category__name = transformed.category || undefined;
+    transformed.gender__name = transformed.gender || undefined;
+    transformed.brand__name = transformed.brand || undefined;
+    return transformed;
+  };
 
   const handleFilterChange = (e) => {
     const { name, value } = e.target;
-    setFilters((prev) => ({ ...prev, [name]: value }));
+    setFilters((prev) => ({
+      ...prev,
+      [name]: value === prev[name] ? '' : value, // Reset nếu chọn lại giá trị cũ
+    }));
   };
 
   const toggleLike = (productId, e) => {
@@ -73,13 +117,9 @@ const Product = () => {
             <span>/</span>
             <span>Sản phẩm</span>
           </div>
-
           <div className="page-header">
             <h1>Tất cả sản phẩm</h1>
-            <p>
-              Khám phá bộ sưu tập giày cao cấp: sneaker, oxford, cao gót, sandal và
-              nhiều lựa chọn khác.
-            </p>
+            <p>Khám phá bộ sưu tập giày cao cấp: sneaker, oxford, cao gót, sandal và nhiều lựa chọn khác.</p>
           </div>
         </div>
       </div>
@@ -87,23 +127,65 @@ const Product = () => {
       <div className="product-container">
         {/* Sidebar Filters */}
         <div className="sidebar">
-          {/* Danh mục */}
+          {/* Loại sản phẩm (Category) */}
           <div className="filter-section">
-            <h3>Danh mục</h3>
+            <h3>Loại sản phẩm</h3>
             <div className="filter-options">
-              {["", "Sneaker", "Oxford", "Cao gót", "Sandal", "Boots"].map((cat) => (
+              <label className={filters.category === '' ? "active" : ""}>
+                <input
+                  type="radio"
+                  name="category"
+                  value=""
+                  onChange={handleFilterChange}
+                  checked={filters.category === ''}
+                />
+                Tất cả
+              </label>
+              {categories.map((cat) => (
                 <label
-                  key={cat}
-                  className={filters.category === cat ? "active" : ""}
+                  key={cat.id}
+                  className={filters.category === cat.name ? "active" : ""}
                 >
                   <input
                     type="radio"
                     name="category"
-                    value={cat}
+                    value={cat.name}
                     onChange={handleFilterChange}
-                    checked={filters.category === cat}
+                    checked={filters.category === cat.name}
                   />
-                  {cat === "" ? "Tất cả" : cat}
+                  {cat.name}
+                </label>
+              ))}
+            </div>
+          </div>
+
+          {/* Giới tính */}
+          <div className="filter-section">
+            <h3>Giới tính</h3>
+            <div className="filter-options">
+              <label className={filters.gender === '' ? "active" : ""}>
+                <input
+                  type="radio"
+                  name="gender"
+                  value=""
+                  onChange={handleFilterChange}
+                  checked={filters.gender === ''}
+                />
+                Tất cả
+              </label>
+              {genders.map((gender) => (
+                <label
+                  key={gender.id}
+                  className={filters.gender === gender.name ? "active" : ""}
+                >
+                  <input
+                    type="radio"
+                    name="gender"
+                    value={gender.name}
+                    onChange={handleFilterChange}
+                    checked={filters.gender === gender.name}
+                  />
+                  {gender.name === 'nam' ? 'Nam' : 'Nữ'}
                 </label>
               ))}
             </div>
@@ -113,18 +195,18 @@ const Product = () => {
           <div className="filter-section">
             <h3>Kích cỡ</h3>
             <div className="size-grid">
-              {["38", "39", "40", "41", "42", "43"].map((size) => (
+              {sizes.map((size) => (
                 <button
-                  key={size}
-                  className={`size-btn ${filters.size === size ? "active" : ""}`}
+                  key={size.id}
+                  className={`size-btn ${filters.size === size.value ? "active" : ""}`}
                   onClick={() =>
                     setFilters((prev) => ({
                       ...prev,
-                      size: prev.size === size ? "" : size,
+                      size: prev.size === size.value ? "" : size.value,
                     }))
                   }
                 >
-                  {size}
+                  {size.value}
                 </button>
               ))}
             </div>
@@ -134,30 +216,29 @@ const Product = () => {
           <div className="filter-section">
             <h3>Màu sắc</h3>
             <div className="color-options">
-              {["Đen", "Trắng", "Be", "Nâu", "Xám"].map((color) => (
+              <label className={filters.color === '' ? "active" : ""}>
+                <input
+                  type="radio"
+                  name="color"
+                  value=""
+                  onChange={handleFilterChange}
+                  checked={filters.color === ''}
+                />
+                Tất cả
+              </label>
+              {colors.map((color) => (
                 <label
-                  key={color}
-                  className={filters.colors?.includes(color) ? "active" : ""}
+                  key={color.id}
+                  className={filters.color === color.value ? "active" : ""}
                 >
                   <input
-                    type="checkbox"
+                    type="radio"
                     name="color"
-                    value={color}
-                    checked={filters.colors?.includes(color)}
-                    onChange={(e) => {
-                      const { checked, value } = e.target;
-                      setFilters((prev) => {
-                        const colors = prev.colors || [];
-                        return {
-                          ...prev,
-                          colors: checked
-                            ? [...colors, value]
-                            : colors.filter((c) => c !== value),
-                        };
-                      });
-                    }}
+                    value={color.value}
+                    onChange={handleFilterChange}
+                    checked={filters.color === color.value}
                   />
-                  {color}
+                  {color.value}
                 </label>
               ))}
             </div>
@@ -167,6 +248,16 @@ const Product = () => {
           <div className="filter-section">
             <h3>Khoảng giá</h3>
             <div className="price-range">
+              <label className={filters.priceRange === '' ? "active" : ""}>
+                <input
+                  type="radio"
+                  name="priceRange"
+                  value=""
+                  onChange={handleFilterChange}
+                  checked={filters.priceRange === ''}
+                />
+                Tất cả
+              </label>
               {[
                 { value: "0-1000000", label: "Dưới 1.000.000đ" },
                 { value: "1000000-2000000", label: "1.000.000 - 2.000.000đ" },
@@ -188,6 +279,70 @@ const Product = () => {
               ))}
             </div>
           </div>
+
+          {/* Thương hiệu */}
+          <div className="filter-section">
+            <h3>Thương hiệu</h3>
+            <div className="filter-options">
+              <label className={filters.brand === '' ? "active" : ""}>
+                <input
+                  type="radio"
+                  name="brand"
+                  value=""
+                  onChange={handleFilterChange}
+                  checked={filters.brand === ''}
+                />
+                Tất cả
+              </label>
+              {["Nike", "Adidas", "Crocs", "Puma", "Converse", "Vans"].map((brand) => (
+                <label
+                  key={brand}
+                  className={filters.brand === brand ? "active" : ""}
+                >
+                  <input
+                    type="radio"
+                    name="brand"
+                    value={brand}
+                    onChange={handleFilterChange}
+                    checked={filters.brand === brand}
+                  />
+                  {brand}
+                </label>
+              ))}
+            </div>
+          </div>
+
+          {/* Khuyến mãi */}
+          <div className="filter-section">
+            <h3>Khuyến mãi</h3>
+            <div className="filter-options">
+              <label className={filters.isOnSale === '' ? "active" : ""}>
+                <input
+                  type="radio"
+                  name="isOnSale"
+                  value=""
+                  onChange={handleFilterChange}
+                  checked={filters.isOnSale === ''}
+                />
+                Tất cả
+              </label>
+              {["true", "false"].map((sale) => (
+                <label
+                  key={sale}
+                  className={filters.isOnSale === sale ? "active" : ""}
+                >
+                  <input
+                    type="radio"
+                    name="isOnSale"
+                    value={sale}
+                    onChange={handleFilterChange}
+                    checked={filters.isOnSale === sale}
+                  />
+                  {sale === "true" ? "Có khuyến mãi" : "Không khuyến mãi"}
+                </label>
+              ))}
+            </div>
+          </div>
         </div>
 
         {/* Main Content */}
@@ -196,7 +351,7 @@ const Product = () => {
           <div className="sort-control">
             <label htmlFor="sort">Sắp xếp:</label>
             <div className="custom-select">
-              <select id="sort">
+              <select id="sort" onChange={(e) => setFilters((prev) => ({ ...prev, sort: e.target.value }))}>
                 <option value="">Phổ biến</option>
                 <option value="price-asc">Giá tăng dần</option>
                 <option value="price-desc">Giá giảm dần</option>

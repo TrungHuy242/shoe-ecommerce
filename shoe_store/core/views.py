@@ -1,13 +1,13 @@
-from django.shortcuts import render
+# core/views.py
 from rest_framework import viewsets, filters
 from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework.permissions import IsAuthenticatedOrReadOnly
+from rest_framework.permissions import AllowAny, IsAuthenticatedOrReadOnly
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework_simplejwt.views import TokenObtainPairView
 from django.conf import settings
-from .models import Product, Category, Brand, Image, Banner, Promotion, ProductPromotion, Customer, Cart, CartItem, Order, OrderDetail, Payment, Wishlist, Notification, FAQ, ChatBotConversation
-from .serializers import ProductSerializer, CategorySerializer, BrandSerializer, ImageSerializer, BannerSerializer, PromotionSerializer, ProductPromotionSerializer, CustomerSerializer, CartSerializer, CartItemSerializer, OrderSerializer, OrderDetailSerializer, PaymentSerializer, WishlistSerializer, NotificationSerializer, FAQSerializer, ChatBotConversationSerializer,CustomTokenObtainPairSerializer
+from .models import Product, Category, Brand, Image, Banner, Promotion, ProductPromotion, Customer, Cart, CartItem, Order, OrderDetail, Payment, Wishlist, Notification, FAQ, ChatBotConversation, Size, Color, Gender
+from .serializers import ProductSerializer, CategorySerializer, BrandSerializer, ImageSerializer, BannerSerializer, PromotionSerializer, ProductPromotionSerializer, CustomerSerializer, CartSerializer, CartItemSerializer, OrderSerializer, OrderDetailSerializer, PaymentSerializer, WishlistSerializer, NotificationSerializer, FAQSerializer, ChatBotConversationSerializer, CustomTokenObtainPairSerializer, SizeSerializer, ColorSerializer, GenderSerializer
 import google.generativeai as genai
 from .permissions import IsAdminOrReadOnly, IsCustomerOrAdmin
 from django.contrib.auth.models import User
@@ -20,34 +20,65 @@ class ProductViewSet(viewsets.ModelViewSet):
     serializer_class = ProductSerializer
     permission_classes = [IsAdminOrReadOnly]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['category', 'brand', 'color', 'size', 'price']
+    filterset_fields = {
+        'category__name': ['exact'],
+        'gender__name': ['exact'],
+        'brand__name': ['exact'],
+        'sizes__value': ['exact'],
+        'colors__value': ['exact'],
+        'price': ['gte', 'lte'],
+        'isOnSale': ['exact'],
+    }
     search_fields = ['name', 'description']
     ordering_fields = ['price', 'stock_quantity']
+    
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        sort = self.request.query_params.get('sort', '')
+        if sort == 'price-asc':
+            queryset = queryset.order_by('price')
+        elif sort == 'price-desc':
+            queryset = queryset.order_by('-price')
+        elif sort == 'newest':
+            queryset = queryset.order_by('-id')  # Sắp xếp theo ID giảm dần (mới nhất)
+        print(f"Filtered queryset: {list(queryset.values('id', 'name', 'category__name', 'gender__name', 'brand__name'))}")
+        return queryset
 
     def perform_create(self, serializer):
-        # Tự động cập nhật unit_price nếu cần
         serializer.save()
     
     from rest_framework.decorators import action
-    from rest_framework.response import Response
-    # Gợi ý sản phẩn liên quan dựa theo danh mục
     @action(detail=True, methods=['get'])
     def suggestions(self, request, pk=None):
         product = self.get_object()
         suggestions = Product.objects.filter(category=product.category).exclude(id=pk)[:3]
-        serializer =self.get_serializer(suggestions, many=True)
+        serializer = self.get_serializer(suggestions, many=True)
         return Response(serializer.data)
-    
 
 class CategoryViewSet(viewsets.ModelViewSet):
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
-    permission_classes = [IsAuthenticatedOrReadOnly]
+    permission_classes = [AllowAny]  # Đổi thành AllowAny nếu muốn công khai
 
 class BrandViewSet(viewsets.ModelViewSet):
     queryset = Brand.objects.all()
     serializer_class = BrandSerializer
-    permission_classes = [IsAuthenticatedOrReadOnly]
+    permission_classes = [AllowAny]  # Đổi thành AllowAny nếu muốn công khai
+
+class SizeViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = Size.objects.all()
+    serializer_class = SizeSerializer
+    permission_classes = [AllowAny]  # Thay IsAuthenticatedOrReadOnly bằng AllowAny
+
+class ColorViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = Color.objects.all()
+    serializer_class = ColorSerializer
+    permission_classes = [AllowAny]  # Thay IsAuthenticatedOrReadOnly bằng AllowAny
+
+class GenderViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = Gender.objects.all()
+    serializer_class = GenderSerializer
+    permission_classes = [AllowAny]  # Thay IsAuthenticatedOrReadOnly bằng AllowAny
 
 class ImageViewSet(viewsets.ModelViewSet):
     queryset = Image.objects.all()
@@ -58,27 +89,27 @@ class BannerViewSet(viewsets.ModelViewSet):
     queryset = Banner.objects.all()
     serializer_class = BannerSerializer
     permission_classes = [IsAuthenticatedOrReadOnly]
-    
+
 class PromotionViewSet(viewsets.ModelViewSet):
     queryset = Promotion.objects.all()
     serializer_class = PromotionSerializer
     permission_classes = [IsAuthenticatedOrReadOnly]
-    
+
 class ProductPromotionViewSet(viewsets.ModelViewSet):
     queryset = ProductPromotion.objects.all()
     serializer_class = ProductPromotionSerializer
     permission_classes = [IsAuthenticatedOrReadOnly]
-    
+
 class CustomerViewSet(viewsets.ModelViewSet):
     queryset = Customer.objects.all()
     serializer_class = CustomerSerializer
     permission_classes = [IsAuthenticatedOrReadOnly]
-    
+
 class CartViewSet(viewsets.ModelViewSet):
     queryset = Cart.objects.all()
     serializer_class = CartSerializer
     permission_classes = [IsAuthenticatedOrReadOnly]
-    
+
 class CartItemViewSet(viewsets.ModelViewSet):
     queryset = CartItem.objects.all()
     serializer_class = CartItemSerializer
@@ -92,12 +123,11 @@ class OrderViewSet(viewsets.ModelViewSet):
     filterset_fields = ['customer', 'status', 'payment_method']
     search_fields = ['id']
 
-    # Tự động tính total_price từ OrderDetail
     def perform_create(self, serializer):
         order = serializer.save()
         order.total_price = sum(detail.unit_price * detail.quantity for detail in order.orderdetail_set.all())
         order.save()
-    
+
 class OrderDetailViewSet(viewsets.ModelViewSet):
     queryset = OrderDetail.objects.all()
     serializer_class = OrderDetailSerializer
@@ -107,12 +137,12 @@ class PaymentViewSet(viewsets.ModelViewSet):
     queryset = Payment.objects.all()
     serializer_class = PaymentSerializer
     permission_classes = [IsAuthenticatedOrReadOnly]
-    
+
 class WishlistViewSet(viewsets.ModelViewSet):
     queryset = Wishlist.objects.all()
     serializer_class = WishlistSerializer
     permission_classes = [IsAuthenticatedOrReadOnly]
-    
+
 class NotificationViewSet(viewsets.ModelViewSet):
     queryset = Notification.objects.all()
     serializer_class = NotificationSerializer
@@ -127,9 +157,7 @@ class ChatBotConversationViewSet(viewsets.ModelViewSet):
     queryset = ChatBotConversation.objects.all()
     serializer_class = ChatBotConversationSerializer
     permission_classes = [IsAuthenticatedOrReadOnly]
-    
 
-# Chat box
 genai.configure(api_key=settings.GEMINI_API_KEY)
 model = genai.GenerativeModel("gemini-1.5-flash")
 
