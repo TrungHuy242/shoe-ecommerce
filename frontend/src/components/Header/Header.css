@@ -122,3 +122,40 @@
 .login-btn-header:hover {
   background: #e65500;
 }
+
+/* User account section */
+.user-account-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  position: relative;
+}
+
+/* Dropdown menu */
+.account-dropdown-header {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  min-width: 200px;
+  z-index: 1001;
+  margin-top: 8px;
+  padding: 8px 0;
+}
+
+.dropdown-item-header {
+  display: block;
+  padding: 8px 16px;
+  text-decoration: none;
+  color: #333;
+  font-weight: 500;
+  transition: background 0.3s ease;
+}
+
+.dropdown-item-header:hover {
+  background: #f5f5f5;
+}

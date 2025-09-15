@@ -6,14 +6,15 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework_simplejwt.views import TokenObtainPairView
 from django.conf import settings
-from .models import Product, Category, Brand, Image, Banner, Promotion, ProductPromotion, Customer, Cart, CartItem, Order, OrderDetail, Payment, Wishlist, Notification, FAQ, ChatBotConversation, Size, Color, Gender
-from .serializers import ProductSerializer, CategorySerializer, BrandSerializer, ImageSerializer, BannerSerializer, PromotionSerializer, ProductPromotionSerializer, CustomerSerializer, CartSerializer, CartItemSerializer, OrderSerializer, OrderDetailSerializer, PaymentSerializer, WishlistSerializer, NotificationSerializer, FAQSerializer, ChatBotConversationSerializer, CustomTokenObtainPairSerializer, SizeSerializer, ColorSerializer, GenderSerializer
+from .models import Product, Category, Brand, Image, Banner, Promotion, ProductPromotion, User, Cart, CartItem, Order, OrderDetail, Payment, Wishlist, Notification, FAQ, ChatBotConversation, Size, Color, Gender
+from .serializers import ProductSerializer, CategorySerializer, BrandSerializer, ImageSerializer, BannerSerializer, PromotionSerializer, ProductPromotionSerializer, UserSerializer, CartSerializer, CartItemSerializer, OrderSerializer, OrderDetailSerializer, PaymentSerializer, WishlistSerializer, NotificationSerializer, FAQSerializer, ChatBotConversationSerializer, CustomTokenObtainPairSerializer, SizeSerializer, ColorSerializer, GenderSerializer
 import google.generativeai as genai
 from .permissions import IsAdminOrReadOnly, IsCustomerOrAdmin
-from django.contrib.auth.models import User
-from core.models import Customer
 from rest_framework import status
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
 
+# Create your views here.
 # Create your views here.
 class ProductViewSet(viewsets.ModelViewSet):
     queryset = Product.objects.all()
@@ -27,7 +28,6 @@ class ProductViewSet(viewsets.ModelViewSet):
         'sizes__value': ['exact'],
         'colors__value': ['exact'],
         'price': ['gte', 'lte'],
-        'isOnSale': ['exact'],
     }
     search_fields = ['name', 'description']
     ordering_fields = ['price', 'stock_quantity']
@@ -45,7 +45,33 @@ class ProductViewSet(viewsets.ModelViewSet):
         return queryset
 
     def perform_create(self, serializer):
-        serializer.save()
+        product = serializer.save()
+        images_data = self.request.FILES.getlist('images')
+        for image_data in images_data:
+            Image.objects.create(product=product, image=image_data)
+
+    def update(self, request, pk=None):
+        product = self.get_object()
+        serializer = self.get_serializer(product, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+
+            # Handle new images
+            new_images = request.FILES.getlist('images')
+            for image in new_images:
+                Image.objects.create(product=product, image=image)
+
+            # Handle images to delete
+            images_to_delete = request.data.getlist('images_to_delete')
+            for image_id in images_to_delete:
+                try:
+                    image = Image.objects.get(pk=image_id, product=product)
+                    image.delete()
+                except Image.DoesNotExist:
+                    pass  # Handle the case where the image doesn't exist
+
+            return Response(serializer.data)
+        return Response(serializer.errors, status=400)
     
     from rest_framework.decorators import action
     @action(detail=True, methods=['get'])
@@ -54,6 +80,14 @@ class ProductViewSet(viewsets.ModelViewSet):
         suggestions = Product.objects.filter(category=product.category).exclude(id=pk)[:3]
         serializer = self.get_serializer(suggestions, many=True)
         return Response(serializer.data)
+
+class UserViewSet(viewsets.ModelViewSet):
+    queryset = User.objects.all()
+    serializer_class = UserSerializer
+    permission_classes = [IsAuthenticatedOrReadOnly]
+
+    def perform_create(self, serializer):
+        serializer.save()
 
 class CategoryViewSet(viewsets.ModelViewSet):
     queryset = Category.objects.all()
@@ -65,15 +99,15 @@ class BrandViewSet(viewsets.ModelViewSet):
     serializer_class = BrandSerializer
     permission_classes = [AllowAny]  # Đổi thành AllowAny nếu muốn công khai
 
-class SizeViewSet(viewsets.ReadOnlyModelViewSet):
+class SizeViewSet(viewsets.ModelViewSet):
     queryset = Size.objects.all()
     serializer_class = SizeSerializer
-    permission_classes = [AllowAny]  # Thay IsAuthenticatedOrReadOnly bằng AllowAny
+    permission_classes = [IsAdminOrReadOnly]
 
-class ColorViewSet(viewsets.ReadOnlyModelViewSet):
+class ColorViewSet(viewsets.ModelViewSet):
     queryset = Color.objects.all()
     serializer_class = ColorSerializer
-    permission_classes = [AllowAny]  # Thay IsAuthenticatedOrReadOnly bằng AllowAny
+    permission_classes = [IsAdminOrReadOnly]
 
 class GenderViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Gender.objects.all()
@@ -100,32 +134,33 @@ class ProductPromotionViewSet(viewsets.ModelViewSet):
     serializer_class = ProductPromotionSerializer
     permission_classes = [IsAuthenticatedOrReadOnly]
 
-class CustomerViewSet(viewsets.ModelViewSet):
-    queryset = Customer.objects.all()
-    serializer_class = CustomerSerializer
-    permission_classes = [IsAuthenticatedOrReadOnly]
-
 class CartViewSet(viewsets.ModelViewSet):
     queryset = Cart.objects.all()
     serializer_class = CartSerializer
     permission_classes = [IsAuthenticatedOrReadOnly]
+
+    def get_queryset(self):
+        return Cart.objects.filter(user=self.request.user)
 
 class CartItemViewSet(viewsets.ModelViewSet):
     queryset = CartItem.objects.all()
     serializer_class = CartItemSerializer
     permission_classes = [IsAuthenticatedOrReadOnly]
 
+    def get_queryset(self):
+        return CartItem.objects.filter(cart__user=self.request.user)
+
 class OrderViewSet(viewsets.ModelViewSet):
     queryset = Order.objects.all()
     serializer_class = OrderSerializer
     permission_classes = [IsCustomerOrAdmin]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    filterset_fields = ['customer', 'status', 'payment_method']
+    filterset_fields = ['user', 'status', 'payment_method']  # Thay 'customer' bằng 'user'
     search_fields = ['id']
 
     def perform_create(self, serializer):
-        order = serializer.save()
-        order.total_price = sum(detail.unit_price * detail.quantity for detail in order.orderdetail_set.all())
+        order = serializer.save(user=self.request.user)  # Gán user hiện tại
+        order.total = sum(detail.unit_price * detail.quantity for detail in order.orderdetail_set.all())
         order.save()
 
 class OrderDetailViewSet(viewsets.ModelViewSet):
@@ -143,10 +178,16 @@ class WishlistViewSet(viewsets.ModelViewSet):
     serializer_class = WishlistSerializer
     permission_classes = [IsAuthenticatedOrReadOnly]
 
+    def get_queryset(self):
+        return Wishlist.objects.filter(user=self.request.user)  # Thay customer bằng user
+
 class NotificationViewSet(viewsets.ModelViewSet):
     queryset = Notification.objects.all()
     serializer_class = NotificationSerializer
     permission_classes = [IsAuthenticatedOrReadOnly]
+
+    def get_queryset(self):
+        return Notification.objects.filter(user=self.request.user)  # Thay customer bằng user
 
 class FAQViewSet(viewsets.ModelViewSet):
     queryset = FAQ.objects.all()
@@ -158,13 +199,16 @@ class ChatBotConversationViewSet(viewsets.ModelViewSet):
     serializer_class = ChatBotConversationSerializer
     permission_classes = [IsAuthenticatedOrReadOnly]
 
+    def get_queryset(self):
+        return ChatBotConversation.objects.filter(user=self.request.user)  # Thay customer bằng user
+
 genai.configure(api_key=settings.GEMINI_API_KEY)
 model = genai.GenerativeModel("gemini-1.5-flash")
 
 class ChatbotView(APIView):
     def post(self, request):
         message = request.data.get('message', '')
-        customer_id = request.data.get('customer_id', None)
+        user_id = request.data.get('user_id', None)  # Thay customer_id bằng user_id
 
         prompt = f"""
         Bạn là chatbot tư vấn thân thiện cho cửa hàng giày dép. Hãy trả lời bằng tiếng Việt, vui vẻ, hữu ích.
@@ -186,8 +230,8 @@ class ChatbotView(APIView):
             else:
                 reply += "\nHiện tại chưa có sản phẩm để gợi ý. Vui lòng quay lại sau nhé!"
         elif "đơn hàng" in message.lower():
-            if customer_id:
-                orders = Order.objects.filter(customer_id=customer_id)
+            if user_id:
+                orders = Order.objects.filter(user_id=user_id)
                 if orders.exists():
                     reply += "\nĐơn hàng của bạn: " + ", ".join([f"Mã: {o.id}, Trạng thái: {o.status}" for o in orders])
                 else:
@@ -201,11 +245,13 @@ class ChatbotView(APIView):
             else:
                 reply += "\nChưa có thông tin FAQ. Vui lòng liên hệ nhân viên!"
 
-        if customer_id:
-            ChatBotConversation.objects.create(customer_id=customer_id, message_content=message, is_by_staff=False)
+        if user_id:
+            ChatBotConversation.objects.create(user_id=user_id, message_content=message, is_by_staff=False)
 
         if "không hiểu" in gemini_response.lower():
             reply += "\nTôi sẽ chuyển bạn đến nhân viên tư vấn!"
+            # Tạo notification (giả lập)
+            Notification.objects.create(user_id=user_id, title="Chuyển sang nhân viên", type="chat", related_id=0)
 
         return Response({"reply": reply})
 
@@ -225,8 +271,22 @@ class RegisterView(APIView):
                 return Response({"username": ["Tên đăng nhập đã tồn tại"]}, status=status.HTTP_400_BAD_REQUEST)
             if User.objects.filter(email=data['email']).exists():
                 return Response({"email": ["Email đã tồn tại"]}, status=status.HTTP_400_BAD_REQUEST)
-            user = User.objects.create_user(username=data['username'], email=data['email'], password=data['password'])
-            Customer.objects.create(user=user, name=data['name'], email=data['email'], role=0)
-            return Response({"message": "Đăng ký thành công"}, status=status.HTTP_201_CREATED)
+            user = User.objects.create_user(
+                username=data['username'],
+                email=data['email'],
+                password=data['password'],
+                name=data.get('name', ''),
+                phone=data.get('phone', ''),
+                address=data.get('address', ''),
+                role=data.get('role', 0)  # Mặc định là Customer (0)
+            )
+            return Response({"message": "Đăng ký thành công", "user": UserSerializer(user).data}, status=status.HTTP_201_CREATED)
         except Exception as e:
             return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_customer_by_user(request):
+    user = request.user  # Lấy user hiện tại từ JWT
+    serializer = UserSerializer(user)
+    return Response(serializer.data)

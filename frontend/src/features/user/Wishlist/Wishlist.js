@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import api from '../../../services/api';
 import { FaHeart, FaShoppingCart, FaStar, FaTrash, FaShare, FaSearch } from 'react-icons/fa';
 import './Wishlist.css';
 
@@ -10,66 +11,20 @@ const Wishlist = () => {
   const [sortBy, setSortBy] = useState('newest');
   const [selectedItems, setSelectedItems] = useState(new Set());
 
-  const mockWishlistItems = [
-    {
-      id: 1,
-      name: "Sneaker Da Trắng Premium Limited Edition",
-      price: 2490000,
-      originalPrice: 3100000,
-      discount: 20,
-      image: "/assets/images/products/giày.jpg",
-      rating: 4.8,
-      reviews: 124,
-      inStock: true,
-      addedDate: '2025-01-15',
-      category: 'Sneaker'
-    },
-    {
-      id: 2,
-      name: "Oxford Da Đen Classic",
-      price: 3990000,
-      originalPrice: 4500000,
-      discount: 11,
-      image: "/assets/images/products/giày.jpg",
-      rating: 4.9,
-      reviews: 89,
-      inStock: true,
-      addedDate: '2025-01-10',
-      category: 'Oxford'
-    },
-    {
-      id: 3,
-      name: "Boots Da Cao Cổ",
-      price: 4200000,
-      originalPrice: 5000000,
-      discount: 16,
-      image: "/assets/images/products/giày.jpg",
-      rating: 4.7,
-      reviews: 156,
-      inStock: false,
-      addedDate: '2025-01-05',
-      category: 'Boots'
-    },
-    {
-      id: 4,
-      name: "Sandal Da Tối Giản",
-      price: 1290000,
-      originalPrice: 1650000,
-      discount: 22,
-      image: "/assets/images/products/giày.jpg",
-      rating: 4.5,
-      reviews: 43,
-      inStock: true,
-      addedDate: '2025-01-01',
-      category: 'Sandal'
-    }
-  ];
-
   useEffect(() => {
-    setTimeout(() => {
-      setWishlistItems(mockWishlistItems);
-      setLoading(false);
-    }, 1000);
+    const fetchWishlistData = async () => {
+      try {
+        setLoading(true);
+        const response = await api.get('wishlist/'); // Gọi API để lấy danh sách yêu thích
+        setWishlistItems(response.data); // Giả định response.data là mảng các item
+      } catch (err) {
+        console.error('Lỗi khi lấy dữ liệu wishlist:', err.response ? err.response.data : err.message);
+        setWishlistItems([]); // Đặt mảng rỗng nếu có lỗi
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchWishlistData();
   }, []);
 
   const removeFromWishlist = (id) => {

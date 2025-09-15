@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import api from '../../../services/api'; // Đường dẫn tới file api.js
 import { FaTrash, FaMinus, FaPlus, FaShoppingBag, FaArrowLeft, FaTags } from 'react-icons/fa';
 import './Cart.css';
 
@@ -9,45 +10,20 @@ const Cart = () => {
   const [appliedCoupon, setAppliedCoupon] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  // Mock cart data
-  const mockCartItems = [
-    {
-      id: 1,
-      name: "Sneaker Da Trắng Premium",
-      price: 2490000,
-      originalPrice: 3100000,
-      image: "/assets/images/products/giày.jpg",
-      quantity: 2,
-      size: "42",
-      color: "Trắng"
-    },
-    {
-      id: 2,
-      name: "Giày Oxford Da Đen",
-      price: 3990000,
-      originalPrice: 4500000,
-      image: "/assets/images/products/giày.jpg",
-      quantity: 1,
-      size: "41",
-      color: "Đen"
-    },
-    {
-      id: 3,
-      name: "Sandal Da Tối Giản",
-      price: 1290000,
-      originalPrice: 1650000,
-      image: "/assets/images/products/giày.jpg",
-      quantity: 1,
-      size: "40",
-      color: "Nâu"
-    }
-  ];
-
   useEffect(() => {
-    // Simulate loading cart from API or localStorage
-    setTimeout(() => {
-      setCartItems(mockCartItems);
-    }, 500);
+    const fetchCartData = async () => {
+      try {
+        setLoading(true);
+        const response = await api.get('cart/'); // Gọi API để lấy danh sách giỏ hàng
+        setCartItems(response.data); // Giả định response.data là mảng các item
+      } catch (err) {
+        console.error('Lỗi khi lấy dữ liệu giỏ hàng:', err.response ? err.response.data : err.message);
+        setCartItems([]); // Đặt mảng rỗng nếu có lỗi
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchCartData();
   }, []);
 
   const updateQuantity = (id, newQuantity) => {

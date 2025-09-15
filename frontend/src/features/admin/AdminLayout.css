@@ -1,0 +1,16 @@
+/* src/features/admin/AdminLayout.css */
+
+.admin-layout {
+  display: flex;
+  min-height: 100vh;
+  background: #fdfdfd;
+  font-family: "Inter", sans-serif;
+}
+
+/* Nội dung chính (bên phải sidebar) */
+.admin-content {
+  flex: 1;
+  margin-left: 250px; /* Sidebar rộng 250px */
+  padding: 20px;
+  background: #fff;
+}

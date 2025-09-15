@@ -342,23 +342,3 @@
   color: #5a67d8;
   text-decoration: underline;
 }
-
-/* Responsive */
-@media (max-width: 480px) {
-  .auth-login-card {
-    padding: 2rem 1.5rem;
-  }
-  
-  .auth-login-header h1 {
-    font-size: 1.8rem;
-  }
-  
-  .auth-form-options {
-    flex-direction: column;
-    align-items: stretch;
-  }
-  
-  .auth-social-login {
-    flex-direction: column;
-  }
-}

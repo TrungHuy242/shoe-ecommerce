@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.0/ref/settings/
 """
 
+from datetime import timedelta
 from pathlib import Path
 from dotenv import load_dotenv
 import os
@@ -19,7 +20,6 @@ GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
-
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.0/howto/deployment/checklist/
@@ -32,17 +32,15 @@ DEBUG = True
 
 ALLOWED_HOSTS = []
 
-
 # Application definition
-
 INSTALLED_APPS = [
-    'django.contrib.admin',
-    'django.contrib.auth',
-    'django.contrib.contenttypes',
-    'django.contrib.sessions',
-    'django.contrib.messages',
-    'django.contrib.staticfiles',
-    'core.apps.CoreConfig', 
+    # [REMOVE] 'django.contrib.admin',  # Loại bỏ giao diện admin mặc định
+    'django.contrib.auth',  # Giữ lại để sử dụng authentication mặc định
+    'django.contrib.contenttypes',  # Giữ lại để hỗ trợ các loại nội dung
+    'django.contrib.sessions',  # Giữ lại nếu cần session
+    'django.contrib.messages',  # Giữ lại nếu cần thông báo
+    'django.contrib.staticfiles',  # Giữ lại để quản lý static files
+    'core.apps.CoreConfig',
     'rest_framework',
     'corsheaders',
     'rest_framework_simplejwt',
@@ -51,11 +49,11 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
-    'django.contrib.sessions.middleware.SessionMiddleware',
+    'django.contrib.sessions.middleware.SessionMiddleware',  # Giữ lại nếu cần session
     'django.middleware.common.CommonMiddleware',
-    'django.middleware.csrf.CsrfViewMiddleware',
-    'django.contrib.auth.middleware.AuthenticationMiddleware',
-    'django.contrib.messages.middleware.MessageMiddleware',
+    'django.middleware.csrf.CsrfViewMiddleware',  # Giữ lại nếu cần CSRF
+    'django.contrib.auth.middleware.AuthenticationMiddleware',  # Giữ lại để xác thực
+    'django.contrib.messages.middleware.MessageMiddleware',  # Giữ lại nếu cần thông báo
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'corsheaders.middleware.CorsMiddleware',
 ]
@@ -71,8 +69,8 @@ TEMPLATES = [
             'context_processors': [
                 'django.template.context_processors.debug',
                 'django.template.context_processors.request',
-                'django.contrib.auth.context_processors.auth',
-                'django.contrib.messages.context_processors.messages',
+                'django.contrib.auth.context_processors.auth',  # Giữ lại để hỗ trợ auth
+                'django.contrib.messages.context_processors.messages',  # Giữ lại nếu cần message
             ],
         },
     },
@@ -80,44 +78,44 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'shoe_store.wsgi.application'
 
-
 # Database
 # https://docs.djangoproject.com/en/5.0/ref/settings/#databases
-
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'shoe_db',  
-        'USER': 'root',     
-        'PASSWORD': '',     
+        'NAME': 'shoe_db',
+        'USER': 'root',
+        'PASSWORD': '',
         'HOST': 'localhost',
-        'PORT': '3306',     
+        'PORT': '3306',
     }
 }
 
+# Custom User Model (nếu cần dùng User tùy chỉnh)
+AUTH_USER_MODEL = 'core.User'
+
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
+        'rest_framework_simplejwt.authentication.JWTAuthentication',  # Giữ lại nếu dùng JWT
     ),
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
-    'PAGE_SIZE': 10,  # Phân trang 10 items/trang
+    'PAGE_SIZE': 10,
     'DEFAULT_FILTER_BACKENDS': [
         'django_filters.rest_framework.DjangoFilterBackend',
         'rest_framework.filters.SearchFilter',
         'rest_framework.filters.OrderingFilter',
     ],
     'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.AllowAny',
+        'rest_framework.permissions.AllowAny',  # Giữ lại hoặc thay bằng permission tùy chỉnh
     ],
 }
 
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",  # Port mặc định của React
+    "http://localhost:3000",
 ]
 
 # Password validation
 # https://docs.djangoproject.com/en/5.0/ref/settings/#auth-password-validators
-
 AUTH_PASSWORD_VALIDATORS = [
     {
         'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
@@ -133,27 +131,24 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
-
 # Internationalization
 # https://docs.djangoproject.com/en/5.0/topics/i18n/
-
 LANGUAGE_CODE = 'en-us'
-
 TIME_ZONE = 'UTC'
-
 USE_I18N = True
-
 USE_TZ = True
-
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.0/howto/static-files/
-
 STATIC_URL = 'static/'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field
-
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
+    'AUTH_HEADER_TYPES': ('Bearer',),
+}

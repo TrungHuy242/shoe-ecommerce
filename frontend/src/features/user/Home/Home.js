@@ -1,23 +1,36 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { FaHeart, FaShoppingCart, FaEnvelope, FaStar } from 'react-icons/fa';
 import api from '../../../services/api';
+import { useAuth } from '../../../context/AuthContext';
 import './Home.css';
 
 const Home = () => {
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
+  const [brands, setBrands] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const { isLoggedIn } = useAuth();
+  const navigate = useNavigate();
+
+  // Thêm state + load wishlists khi đã đăng nhập
+  const [wishlistMap, setWishlistMap] = useState({}); // productId -> wishlistId
+
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [productsResponse, categoriesResponse] = await Promise.all([
+        const [productsResponse, categoriesResponse, brandsResponse] = await Promise.all([
           api.get('products/'),
           api.get('categories/'),
+          api.get('brands/'),
         ]);
-        setProducts(productsResponse.data.results || []);
-        setCategories(categoriesResponse.data.results || []);
+        const prodData = Array.isArray(productsResponse.data) ? productsResponse.data : (productsResponse.data.results || []);
+        const catData = Array.isArray(categoriesResponse.data) ? categoriesResponse.data : (categoriesResponse.data.results || []);
+        const brandData = Array.isArray(brandsResponse.data) ? brandsResponse.data : (brandsResponse.data.results || []);
+        setProducts(prodData);
+        setCategories(catData);
+        setBrands(brandData);
       } catch (err) {
         setError('Không thể tải dữ liệu. Vui lòng thử lại sau.');
         console.error('API Error:', err);
@@ -27,6 +40,77 @@ const Home = () => {
     };
     fetchData();
   }, []);
+
+  useEffect(() => {
+    const fetchWishlist = async () => {
+      try {
+        const res = await api.get('wishlists/');
+        // res.data có thể là mảng hoặc { results: [...] }
+        const list = Array.isArray(res.data) ? res.data : (res.data.results || []);
+        const map = {};
+        list.forEach(item => {
+          if (item?.product) map[item.product] = item.id;
+        });
+        setWishlistMap(map);
+      } catch (e) {
+        // bỏ qua nếu chưa đăng nhập hoặc lỗi quyền
+      }
+    };
+    if (isLoggedIn) fetchWishlist();
+  }, [isLoggedIn]);
+
+  const getFirstProductImage = (prod) => {
+    const relImg = prod?.images && prod.images.length > 0 ? prod.images[0].image : null;
+    return relImg || prod?.image || "https://via.placeholder.com/300x300?text=Product";
+  };
+
+  const getCurrentUserId = () => {
+    try {
+      const token = localStorage.getItem('access_token');
+      if (!token) return null;
+      const payload = token.split('.')[1];
+      const decoded = JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')));
+      return decoded.user_id || decoded.userId || null;
+    } catch (e) {
+      return null;
+    }
+  };
+
+  // Cập nhật handleHeartClick để toggle theo wishlistMap
+  const handleHeartClick = async (e, prod) => {
+    e.stopPropagation();
+    e.preventDefault();
+    if (!isLoggedIn) {
+      navigate('/login');
+      return;
+    }
+    const userId = getCurrentUserId();
+    if (!userId) {
+      navigate('/login');
+      return;
+    }
+
+    try {
+      const existingWishlistId = wishlistMap[prod.id];
+      if (existingWishlistId) {
+        // Đã thích -> xóa
+        await api.delete(`wishlists/${existingWishlistId}/`);
+        setWishlistMap(prev => {
+          const next = { ...prev };
+          delete next[prod.id];
+          return next;
+        });
+      } else {
+        // Chưa thích -> tạo mới
+        const created = await api.post('wishlists/', { user: userId, product: prod.id });
+        const newId = created?.data?.id;
+        setWishlistMap(prev => ({ ...prev, [prod.id]: newId }));
+      }
+    } catch (err) {
+      console.error('Toggle wishlist failed:', err);
+      if (err?.response?.status === 401) navigate('/login');
+    }
+  };
 
   if (loading) return <p className="loading-text">Đang tải...</p>;
   if (error) return <p className="error-text">{error}</p>;
@@ -79,18 +163,18 @@ const Home = () => {
         </div>
         <div className="products-grid">
           {products.length > 0 ? products.slice(0, 4).map((prod) => (
-            <div key={prod.id} className="product-card">
+            <Link to={`/product/${prod.id}`} key={prod.id} className="product-card">
               <div className="product-image-wrapper">
                 <img
-                  src={prod.image || "https://via.placeholder.com/300x300?text=Product"}
+                  src={getFirstProductImage(prod)}
                   alt={prod.name}
                   onError={(e) => { e.target.src = "https://via.placeholder.com/300x300?text=Product"; }}
                   className="product-image"
                 />
                 <div className="product-actions">
                   <FaHeart
-                    className="product-heart"
-                    onClick={(e) => e.currentTarget.classList.toggle('liked')}
+                    className={`product-heart ${wishlistMap[prod.id] ? 'liked' : ''}`}
+                    onClick={(e) => handleHeartClick(e, prod)}
                   />
                 </div>
               </div>
@@ -110,20 +194,42 @@ const Home = () => {
                   <div className="price-block">
                     {prod.originalPrice && (
                       <span className="original-price">
-                        {prod.originalPrice.toLocaleString()}đ
+                        {Number(prod.originalPrice).toLocaleString()}đ
                       </span>
                     )}
                     <span className="product-price">
-                      {prod.price.toLocaleString()}đ
+                      {Number(prod.price).toLocaleString()}đ
                     </span>
                   </div>
-                  <button className="add-to-cart">
-                    <FaShoppingCart className="cart-icon" /> Thêm vào giỏ
-                  </button>
+                  <div className="sales-info">
+                    Đã bán {Number(prod?.sales_count ?? 0).toLocaleString()}
+                  </div>
                 </div>
               </div>
-            </div>
+            </Link>
           )) : <p>Không có sản phẩm nào.</p>}
+        </div>
+      </section>
+
+      {/* Brands */}
+      <section className="home-brands-section">
+        <div className="home-brands-header">
+          <h2>Thương hiệu nổi bật</h2>
+          <p>Khám phá các thương hiệu được yêu thích</p>
+        </div>
+        <div className="home-brands-grid">
+          {brands.length > 0 ? brands.map((b) => (
+            <div key={b.id} className="home-brand-card">
+              <div className="home-brand-image-wrap">
+                <img
+                  src={b.image || "https://via.placeholder.com/180x80?text=Brand"}
+                  alt={b.name}
+                  onError={(e) => { e.target.src = "https://via.placeholder.com/180x80?text=Brand"; }}
+                />
+              </div>
+              <div className="home-brand-name">{b.name}</div>
+            </div>
+          )) : <p>Chưa có thương hiệu.</p>}
         </div>
       </section>
 

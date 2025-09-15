@@ -1,0 +1,68 @@
+.admin-sizes-container {
+  padding: 20px;
+}
+
+.admin-sizes-title {
+  font-size: 24px;
+  margin-bottom: 20px;
+}
+
+.admin-sizes-error {
+  color: red;
+  margin-bottom: 10px;
+}
+
+.admin-sizes-add {
+  display: flex;
+  margin-bottom: 20px;
+}
+
+.admin-sizes-add input {
+  padding: 10px;
+  margin-right: 10px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+.admin-sizes-add button {
+  padding: 10px 20px;
+  background-color: #4CAF50;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.admin-sizes-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.admin-sizes-table th,
+.admin-sizes-table td {
+  padding: 10px;
+  border: 1px solid #ccc;
+  text-align: left;
+}
+
+.admin-sizes-table th {
+  background-color: #f2f2f2;
+}
+
+.admin-sizes-table button {
+  padding: 5px 10px;
+  margin-right: 5px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.admin-sizes-table button:first-child {
+  background-color: #008CBA;
+  color: white;
+}
+
+.admin-sizes-table button:last-child {
+  background-color: #f44336;
+  color: white;
+}

@@ -1,0 +1,546 @@
+/* Import Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+/* Reset và base styles */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+/* Container chính với gradient động */
+.admin-add-prod-container {
+  padding: 2rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background-size: 400% 400%;
+  animation: gradientShift 15s ease infinite;
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  position: relative;
+}
+
+/* Hiệu ứng gradient động */
+@keyframes gradientShift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* Overlay pattern trang trí */
+.admin-add-prod-container::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image: 
+    radial-gradient(circle at 25% 25%, rgba(255,255,255,0.1) 0%, transparent 50%),
+    radial-gradient(circle at 75% 75%, rgba(255,255,255,0.05) 0%, transparent 50%);
+  pointer-events: none;
+}
+
+/* Form chính với hiệu ứng glassmorphism */
+.admin-add-prod-form {
+  width: 100%;
+  max-width: 1400px;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  padding: 3rem;
+  border-radius: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 
+    0 25px 50px -12px rgba(0, 0, 0, 0.25),
+    0 0 0 1px rgba(255, 255, 255, 0.1);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 3rem;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+/* Hiệu ứng shine trên form */
+.admin-add-prod-form::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.2),
+    transparent
+  );
+  transition: left 0.5s;
+}
+
+.admin-add-prod-form:hover::before {
+  left: 100%;
+}
+
+/* Tiêu đề với gradient text */
+.admin-add-prod-title {
+  font-size: 2.75rem;
+  font-weight: 800;
+  margin-bottom: 2.5rem;
+  text-align: center;
+  grid-column: span 2;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  letter-spacing: -0.02em;
+  position: relative;
+  animation: titleGlow 2s ease-in-out infinite alternate;
+}
+
+@keyframes titleGlow {
+  from { filter: drop-shadow(0 0 5px rgba(102, 126, 234, 0.3)); }
+  to { filter: drop-shadow(0 0 15px rgba(118, 75, 162, 0.5)); }
+}
+
+/* Thông báo lỗi với animation */
+.admin-add-prod-error {
+  background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+  color: #dc2626;
+  padding: 1.25rem;
+  border-radius: 16px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  grid-column: span 2;
+  text-align: center;
+  border: 1px solid #f87171;
+  position: relative;
+  animation: errorPulse 0.5s ease-out;
+}
+
+@keyframes errorPulse {
+  0% { transform: scale(0.95); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* Phần form section */
+.form-section {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  position: relative;
+}
+
+/* Styling cho inputs với hiệu ứng hover/focus nâng cao */
+.admin-add-prod-form input,
+.admin-add-prod-form textarea,
+.admin-add-prod-form select {
+  padding: 1rem 1.25rem;
+  border: 2px solid #e5e7eb;
+  border-radius: 16px;
+  font-size: 1rem;
+  font-weight: 500;
+  outline: none;
+  background: linear-gradient(145deg, #ffffff 0%, #f8fafc 100%);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  width: 100%;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+  position: relative;
+}
+
+.admin-add-prod-form input:hover,
+.admin-add-prod-form textarea:hover,
+.admin-add-prod-form select:hover {
+  border-color: #a78bfa;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px -8px rgba(167, 139, 250, 0.3);
+}
+
+.admin-add-prod-form input:focus,
+.admin-add-prod-form textarea:focus,
+.admin-add-prod-form select:focus {
+  border-color: #667eea;
+  background: #ffffff;
+  transform: translateY(-3px);
+  box-shadow: 
+    0 20px 25px -5px rgba(102, 126, 234, 0.1),
+    0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+/* Placeholder styling */
+.admin-add-prod-form input::placeholder,
+.admin-add-prod-form textarea::placeholder {
+  color: #9ca3af;
+  font-weight: 400;
+  transition: opacity 0.3s ease;
+}
+
+.admin-add-prod-form input:focus::placeholder,
+.admin-add-prod-form textarea:focus::placeholder {
+  opacity: 0.7;
+}
+
+/* Textarea đặc biệt */
+.admin-add-prod-form textarea {
+  min-height: 140px;
+  resize: vertical;
+  font-family: inherit;
+  line-height: 1.6;
+}
+
+/* Checkbox group với design card */
+.checkbox-group {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  background: linear-gradient(145deg, #f8fafc 0%, #ffffff 100%);
+  padding: 1.5rem;
+  border-radius: 16px;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+  transition: all 0.3s ease;
+}
+
+.checkbox-group:hover {
+  box-shadow: 0 10px 25px -3px rgba(0, 0, 0, 0.1);
+  transform: translateY(-2px);
+}
+
+.checkbox-group > label {
+  font-weight: 600;
+  color: #1f2937;
+  font-size: 1.1rem;
+  margin-bottom: 0.5rem;
+}
+
+/* Checkbox options với hiệu ứng 3D */
+.checkbox-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 0.75rem;
+  padding: 0.5rem 0;
+}
+
+.checkbox-options label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  background: linear-gradient(145deg, #ffffff 0%, #f1f5f9 100%);
+  padding: 0.75rem 1rem;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  font-size: 0.9rem;
+  font-weight: 500;
+  border: 2px solid #e2e8f0;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.checkbox-options label::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(102, 126, 234, 0.1), transparent);
+  transition: left 0.3s ease;
+}
+
+.checkbox-options label:hover {
+  background: linear-gradient(145deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-color: #667eea;
+  transform: translateY(-3px);
+  box-shadow: 0 10px 25px -5px rgba(102, 126, 234, 0.4);
+}
+
+.checkbox-options label:hover::before {
+  left: 100%;
+}
+
+.checkbox-options input[type="checkbox"] {
+  accent-color: #667eea;
+  transform: scale(1.2);
+}
+
+
+/* File input với design đặc biệt */
+.admin-add-prod-form input[type="file"] {
+  padding: 1.5rem;
+  border: 3px dashed #a78bfa;
+  border-radius: 16px;
+  background: linear-gradient(145deg, #faf5ff 0%, #f3e8ff 100%);
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.admin-add-prod-form input[type="file"]:hover {
+  border-color: #667eea;
+  background: linear-gradient(145deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  transform: translateY(-3px);
+  box-shadow: 0 15px 30px -5px rgba(102, 126, 234, 0.4);
+}
+
+/* Form actions với layout mới */
+.form-actions {
+  grid-column: span 2;
+  display: flex;
+  justify-content: center;
+  gap: 1.5rem;
+  margin-top: 2rem;
+  padding-top: 2rem;
+  border-top: 1px solid #e5e7eb;
+}
+
+/* Nút submit với hiệu ứng gradient và glow */
+.btn-submit {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background-size: 200% 200%;
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 1.1rem;
+  padding: 1.25rem 3rem;
+  border: none;
+  border-radius: 16px;
+  cursor: pointer;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 
+    0 10px 25px -5px rgba(102, 126, 234, 0.4),
+    0 0 0 1px rgba(255, 255, 255, 0.1);
+  position: relative;
+  overflow: hidden;
+  animation: buttonGlow 2s ease-in-out infinite alternate;
+}
+
+@keyframes buttonGlow {
+  from { box-shadow: 0 10px 25px -5px rgba(102, 126, 234, 0.4); }
+  to { box-shadow: 0 15px 35px -5px rgba(118, 75, 162, 0.6); }
+}
+
+.btn-submit::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+  transition: left 0.5s;
+}
+
+.btn-submit:hover {
+  background-position: 200% 200%;
+  transform: translateY(-4px);
+  box-shadow: 
+    0 20px 40px -10px rgba(102, 126, 234, 0.6),
+    0 0 0 1px rgba(255, 255, 255, 0.2);
+}
+
+.btn-submit:hover::before {
+  left: 100%;
+}
+
+/* Nút cancel với style minimalist */
+.btn-cancel {
+  background: linear-gradient(145deg, #f8fafc 0%, #e2e8f0 100%);
+  color: #475569;
+  font-weight: 600;
+  font-size: 1.1rem;
+  padding: 1.25rem 3rem;
+  border: 2px solid #e2e8f0;
+  border-radius: 16px;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-cancel:hover {
+  background: linear-gradient(145deg, #ef4444 0%, #dc2626 100%);
+  color: white;
+  border-color: #ef4444;
+  transform: translateY(-4px);
+  box-shadow: 0 15px 30px -5px rgba(239, 68, 68, 0.4);
+}
+
+/* Responsive design nâng cao */
+@media (max-width: 1200px) {
+  .admin-add-prod-form {
+    max-width: 1000px;
+    gap: 2.5rem;
+  }
+}
+
+@media (max-width: 900px) {
+  .admin-add-prod-container {
+    padding: 1rem;
+  }
+
+  .admin-add-prod-form {
+    grid-template-columns: 1fr;
+    padding: 2rem;
+    gap: 2rem;
+    border-radius: 20px;
+  }
+
+  .admin-add-prod-title {
+    font-size: 2.25rem;
+    grid-column: span 1;
+    margin-bottom: 2rem;
+  }
+
+  .admin-add-prod-error {
+    grid-column: span 1;
+  }
+
+  .form-actions {
+    grid-column: span 1;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .btn-submit,
+  .btn-cancel {
+    width: 100%;
+    padding: 1rem;
+    font-size: 1rem;
+  }
+
+  .checkbox-options {
+    grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+  }
+}
+
+@media (max-width: 600px) {
+  .admin-add-prod-container {
+    padding: 0.5rem;
+  }
+
+  .admin-add-prod-form {
+    padding: 1.5rem;
+    border-radius: 16px;
+  }
+
+  .admin-add-prod-title {
+    font-size: 1.875rem;
+  }
+
+  .checkbox-options {
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+  }
+
+  .checkbox-options label {
+    padding: 0.5rem;
+    font-size: 0.8rem;
+  }
+}
+
+/* Dark mode support (optional) */
+@media (prefers-color-scheme: dark) {
+  .admin-add-prod-form {
+    background: rgba(17, 24, 39, 0.95);
+    color: #f9fafb;
+  }
+
+  .admin-add-prod-form input,
+  .admin-add-prod-form textarea,
+  .admin-add-prod-form select {
+    background: linear-gradient(145deg, #1f2937 0%, #111827 100%);
+    border-color: #374151;
+    color: #f9fafb;
+  }
+
+  .checkbox-group {
+    background: linear-gradient(145deg, #1f2937 0%, #111827 100%);
+    border-color: #374151;
+  }
+}
+
+/* Accessibility improvements */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Focus visible for keyboard navigation */
+.btn-submit:focus-visible,
+.btn-cancel:focus-visible {
+  outline: 3px solid #667eea;
+  outline-offset: 2px;
+}
+
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
+}
+/* Tabs container */
+.react-tabs {
+  grid-column: span 2;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+/* Tab list */
+.react-tabs__tab-list {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  margin-bottom: 2rem;
+  border-bottom: none; /* bỏ line mặc định */
+}
+
+/* Tab item */
+.react-tabs__tab {
+  padding: 1rem 2rem;
+  border-radius: 12px;
+  font-weight: 600;
+  font-size: 1rem;
+  cursor: pointer;
+  background: linear-gradient(145deg, #f8fafc 0%, #e2e8f0 100%);
+  border: 2px solid #e2e8f0;
+  color: #475569;
+  transition: all 0.3s ease;
+}
+
+.react-tabs__tab:hover {
+  background: linear-gradient(145deg, #667eea 0%, #764ba2 100%);
+  color: #fff;
+  border-color: #667eea;
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px -5px rgba(102, 126, 234, 0.4);
+}
+
+/* Active tab */
+.react-tabs__tab--selected {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #fff;
+  border-color: #667eea;
+  box-shadow: 0 12px 30px -5px rgba(102, 126, 234, 0.6);
+}
+
+/* Panel content */
+.react-tabs__tab-panel {
+  animation: fadeIn 0.4s ease-in-out;
+  grid-column: span 2;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}

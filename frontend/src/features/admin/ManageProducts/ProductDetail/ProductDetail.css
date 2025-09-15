@@ -1,0 +1,119 @@
+/* ===== Overlay ===== */
+.admin-prod-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(17, 24, 39, 0.6); /* đậm hơn */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+/* ===== Modal ===== */
+.admin-prod-modal {
+  background: #fff;
+  border-radius: 12px;
+  max-width: 800px;
+  width: 95%;
+  max-height: 90vh;
+  padding: 2rem;
+  overflow-y: auto;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2);
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+/* ===== Title ===== */
+.admin-prod-modal-title {
+  font-size: 1.6rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid #e5e7eb;
+  padding-bottom: 0.8rem;
+}
+
+/* ===== Content ===== */
+.admin-prod-detail-content {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem 2rem;
+  font-size: 0.95rem;
+  color: #374151;
+}
+
+.admin-prod-detail-content p {
+  margin: 0;
+}
+
+.admin-prod-detail-content strong {
+  display: block;
+  font-size: 0.8rem;
+  color: #6b7280;
+  font-weight: 500;
+  margin-bottom: 0.2rem;
+}
+
+/* ===== Images ===== */
+.admin-prod-detail-content .images-block {
+  grid-column: span 2;
+}
+
+.admin-prod-detail-content .images-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-top: 0.5rem;
+}
+
+.admin-prod-detail-content img {
+  width: 150px;
+  height: 150px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+  background: #f9fafb;
+  transition: transform 0.2s;
+}
+
+.admin-prod-detail-content img:hover {
+  transform: scale(1.03);
+}
+
+/* ===== Actions ===== */
+.admin-prod-form-actions {
+  grid-column: span 2;
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 1.5rem;
+}
+
+.admin-prod-btn {
+  padding: 0.7rem 1.5rem;
+  font-size: 0.95rem;
+  font-weight: 500;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.admin-prod-btn-cancel {
+  background-color: #2563eb;
+  color: white;
+}
+
+.admin-prod-btn-cancel:hover {
+  background-color: #1e40af;
+}
+
+/* ===== Animation ===== */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

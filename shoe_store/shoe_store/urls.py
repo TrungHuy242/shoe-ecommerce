@@ -14,10 +14,9 @@ Including another URLconf
     1. Import the include() function: from django.urls import include, path
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
-from django.contrib import admin
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from core.views import ProductViewSet, CategoryViewSet, BrandViewSet, BannerViewSet, ImageViewSet, ProductPromotionViewSet, PromotionViewSet, CustomerViewSet, CartItemViewSet, CartViewSet, OrderViewSet, OrderDetailViewSet ,PaymentViewSet, WishlistViewSet, NotificationViewSet, FAQViewSet,ChatBotConversationViewSet, ChatbotView,CustomTokenObtainPairView,RegisterView, SizeViewSet, ColorViewSet, GenderViewSet
+from core.views import ProductViewSet, CategoryViewSet, BrandViewSet, BannerViewSet, ImageViewSet, ProductPromotionViewSet, PromotionViewSet, CartItemViewSet, CartViewSet, OrderViewSet, OrderDetailViewSet ,PaymentViewSet, WishlistViewSet, NotificationViewSet, FAQViewSet,ChatBotConversationViewSet, ChatbotView,CustomTokenObtainPairView,RegisterView, SizeViewSet, ColorViewSet, GenderViewSet, UserViewSet
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from django.conf import settings
 from django.conf.urls.static import static
@@ -31,7 +30,6 @@ router.register(r'banners', BannerViewSet),
 router.register(r'images', ImageViewSet),
 router.register(r'product-promotions', ProductPromotionViewSet),
 router.register(r'promotions', PromotionViewSet),
-router.register(r'customers', CustomerViewSet),
 router.register(r'cart-items', CartItemViewSet),
 router.register(r'carts', CartViewSet),
 router.register(r'orders', OrderViewSet),
@@ -44,10 +42,11 @@ router.register(r'chatbot-conversations', ChatBotConversationViewSet)
 router.register(r'sizes', SizeViewSet)
 router.register(r'colors', ColorViewSet)
 router.register(r'genders', GenderViewSet)
+router.register(r'users', UserViewSet)
+
 
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
     path('api/', include(router.urls)),
     path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),

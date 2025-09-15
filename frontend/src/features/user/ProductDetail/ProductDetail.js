@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import api from '../../../services/api';
 import { 
   FaHeart, 
   FaShoppingCart, 
@@ -17,81 +18,70 @@ import './ProductDetail.css';
 const ProductDetail = () => {
   const { id } = useParams();
   const [product, setProduct] = useState(null);
+  const [relatedProducts, setRelatedProducts] = useState([]);
+  const [sizes, setSizes] = useState([]); // Danh sách kích cỡ từ API
+  const [colors, setColors] = useState([]); // Danh sách màu sắc từ API
   const [selectedSize, setSelectedSize] = useState('');
   const [selectedColor, setSelectedColor] = useState('');
   const [quantity, setQuantity] = useState(1);
-  const [activeImage, setActiveImage] = useState(0);
   const [isLiked, setIsLiked] = useState(false);
   const [loading, setLoading] = useState(true);
-
-  const mockProduct = {
-    id: 1,
-    name: "Sneaker Da Trắng Premium Limited Edition",
-    description: "Giày sneaker cao cấp với chất liệu da thật 100%, thiết kế hiện đại và thoải mái. Phù hợp cho mọi hoạt động hàng ngày và thể thao nhẹ.",
-    price: 2490000,
-    originalPrice: 3100000,
-    discount: 20,
-    rating: 4.8,
-    reviews: 124,
-    images: [
-      "/assets/images/products/giày.jpg",
-      "/assets/images/products/giày.jpg",
-      "/assets/images/products/giày.jpg",
-      "/assets/images/products/giày.jpg"
-    ],
-    sizes: ["38", "39", "40", "41", "42", "43", "44"],
-    colors: [
-      { name: "Trắng", code: "#FFFFFF", available: true },
-      { name: "Đen", code: "#000000", available: true },
-      { name: "Xám", code: "#808080", available: false },
-      { name: "Navy", code: "#000080", available: true }
-    ],
-    features: [
-      "Chất liệu da cao cấp",
-      "Đế cao su chống trượt",
-      "Lót giày êm ái",
-      "Thiết kế thời trang"
-    ],
-    specifications: {
-      material: "Da thật + Canvas",
-      sole: "Cao su tự nhiên",
-      weight: "450g",
-      origin: "Việt Nam"
-    },
-    inStock: 50,
-    category: "Sneaker"
-  };
-
-  const relatedProducts = [
-    {
-      id: 2,
-      name: "Oxford Da Đen",
-      price: 3990000,
-      image: "/assets/images/products/giày.jpg",
-      rating: 4.9
-    },
-    {
-      id: 3,
-      name: "Sandal Da Nâu",
-      price: 1290000,
-      image: "/assets/images/products/giày.jpg",
-      rating: 4.5
-    },
-    {
-      id: 4,
-      name: "Boots Da Cao",
-      price: 4200000,
-      image: "/assets/images/products/giày.jpg",
-      rating: 4.7
-    }
-  ];
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    setTimeout(() => {
-      setProduct(mockProduct);
-      setSelectedColor(mockProduct.colors[0].name);
-      setLoading(false);
-    }, 1000);
+    const fetchProductData = async () => {
+      try {
+        setLoading(true);
+        // Fetch product, sizes, and colors concurrently
+        const [productResponse, sizesResponse, colorsResponse] = await Promise.all([
+          api.get(`products/${id}/`),
+          api.get('/sizes/'),
+          api.get('/colors/'),
+        ]);
+
+        const productData = productResponse.data;
+        const sizesData = sizesResponse.data?.results || [];
+        const colorsData = colorsResponse.data?.results || [];
+
+        // Map product sizes and colors IDs to their full objects
+        const productSizes = sizesData.filter(size => 
+          (productData.sizes || []).includes(size.id)
+        );
+        const productColors = colorsData.filter(color => 
+          (productData.colors || []).includes(color.id)
+        );
+
+        // Update product data with full sizes and colors
+        setProduct({
+          ...productData,
+          sizes: productSizes,
+          colors: productColors,
+        });
+
+        // Set default selected color
+        setSelectedColor(productColors[0]?.value || '');
+
+        // Fetch related products
+        const relatedResponse = await api.get('products/', { 
+          params: { category__name: productData.category?.name, exclude: id } 
+        });
+        setRelatedProducts(relatedResponse.data.results.slice(0, 3) || []);
+
+        // Store sizes and colors for reference
+        setSizes(sizesData);
+        setColors(colorsData);
+
+        console.log('Product data:', productData);
+        console.log('Product sizes:', productSizes);
+        console.log('Product colors:', productColors);
+      } catch (err) {
+        setError('Không thể tải sản phẩm. Vui lòng thử lại sau.');
+        console.error('API Error:', err.response ? err.response.data : err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchProductData();
   }, [id]);
 
   const handleAddToCart = () => {
@@ -104,7 +94,9 @@ const ProductDetail = () => {
       id: product.id,
       name: product.name,
       price: product.price,
-      image: product.images[0],
+      image: product.images && product.images.length > 0 
+        ? product.images[0].image 
+        : '/assets/images/products/placeholder-product.jpg',
       size: selectedSize,
       color: selectedColor,
       quantity: quantity
@@ -115,8 +107,7 @@ const ProductDetail = () => {
   };
 
   const renderStars = (rating) => {
-    const fullStars = Math.floor(rating);
-    const hasHalfStar = rating % 1 !== 0;
+    const fullStars = Math.floor(rating || 0);
     
     return (
       <div className="prod-stars">
@@ -141,7 +132,7 @@ const ProductDetail = () => {
     );
   }
 
-  if (!product) {
+  if (error || !product) {
     return (
       <div className="prod-product-detail-page">
         <div className="prod-error-container">
@@ -169,26 +160,19 @@ const ProductDetail = () => {
           <div className="prod-product-images">
             <div className="prod-main-image">
               <img 
-                src={product.images[activeImage]} 
+                src={product.images && product.images.length > 0 
+                  ? product.images[0].image 
+                  : '/assets/images/products/placeholder-product.jpg'} 
                 alt={product.name}
                 onError={(e) => {
                   e.target.src = '/assets/images/products/placeholder-product.jpg';
                 }}
               />
-              {product.discount > 0 && (
-                <div className="prod-discount-badge">-{product.discount}%</div>
+              {product.originalPrice && product.originalPrice > product.price && (
+                <div className="prod-discount-badge">
+                  -{Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)}%
+                </div>
               )}
-            </div>
-            <div className="prod-image-thumbnails">
-              {product.images.map((image, index) => (
-                <button
-                  key={index}
-                  className={`prod-thumbnail ${index === activeImage ? 'prod-active' : ''}`}
-                  onClick={() => setActiveImage(index)}
-                >
-                  <img src={image} alt={`${product.name} ${index + 1}`} />
-                </button>
-              ))}
             </div>
           </div>
 
@@ -198,17 +182,17 @@ const ProductDetail = () => {
             <div className="prod-product-rating">
               {renderStars(product.rating)}
               <span className="prod-rating-text">
-                {product.rating} ({product.reviews} đánh giá)
+                {product.rating || 0} ({product.reviews || 0} đánh giá)
               </span>
             </div>
 
             <div className="prod-product-price">
               <span className="prod-current-price">
-                {product.price.toLocaleString()}đ
+                {product.price.toLocaleString('vi-VN')}đ
               </span>
-              {product.originalPrice > product.price && (
+              {product.originalPrice && product.originalPrice > product.price && (
                 <span className="prod-original-price">
-                  {product.originalPrice.toLocaleString()}đ
+                  {product.originalPrice.toLocaleString('vi-VN')}đ
                 </span>
               )}
             </div>
@@ -220,33 +204,28 @@ const ProductDetail = () => {
             <div className="prod-size-selection">
               <h4>Kích cỡ</h4>
               <div className="prod-size-options">
-                {product.sizes.map(size => (
+                {(product.sizes || []).map(size => (
                   <button
-                    key={size}
-                    className={`prod-size-btn ${selectedSize === size ? 'prod-selected' : ''}`}
-                    onClick={() => setSelectedSize(size)}
+                    key={size.id}
+                    className={`prod-size-btn ${selectedSize === size.value ? 'prod-selected' : ''}`}
+                    onClick={() => setSelectedSize(size.value)}
                   >
-                    {size}
+                    {size.value}
                   </button>
                 ))}
               </div>
             </div>
 
             <div className="prod-color-selection">
-              <h4>Màu sắc: {selectedColor}</h4>
+              <h4>Màu sắc</h4>
               <div className="prod-color-options">
-                {product.colors.map(color => (
+                {(product.colors || []).map(color => (
                   <button
-                    key={color.name}
-                    className={`prod-color-btn ${selectedColor === color.name ? 'prod-selected' : ''} ${!color.available ? 'prod-disabled' : ''}`}
-                    onClick={() => color.available && setSelectedColor(color.name)}
-                    disabled={!color.available}
-                    style={{ backgroundColor: color.code }}
-                    title={color.name}
+                    key={color.id}
+                    className={`prod-color-btn ${selectedColor === color.value ? 'prod-selected' : ''}`}
+                    onClick={() => setSelectedColor(color.value)}
                   >
-                    {selectedColor === color.name && (
-                      <span className="prod-checkmark">✓</span>
-                    )}
+                    <span className="prod-color-text">{color.value}</span>
                   </button>
                 ))}
               </div>
@@ -265,20 +244,23 @@ const ProductDetail = () => {
                 <span className="prod-quantity-display">{quantity}</span>
                 <button 
                   className="prod-qty-btn"
-                  onClick={() => setQuantity(quantity + 1)}
+                  onClick={() => quantity < product.stock_quantity && setQuantity(quantity + 1)}
+                  disabled={quantity >= product.stock_quantity}
                 >
                   <FaPlus />
                 </button>
               </div>
               <span className="prod-stock-info">
-                Còn {product.inStock} sản phẩm
+                Còn {product.stock_quantity} sản phẩm
               </span>
             </div>
 
             <div className="prod-action-buttons">
               <button className="prod-add-to-cart-btn" onClick={handleAddToCart}>
                 <FaShoppingCart />
-                Thêm vào giỏ hàng
+              </button>
+              <button className="prod-buy-now-btn" onClick={handleAddToCart}>
+                Mua Ngay
               </button>
               <button 
                 className={`prod-wishlist-btn ${isLiked ? 'prod-liked' : ''}`}
@@ -331,7 +313,7 @@ const ProductDetail = () => {
               
               <h4>Đặc điểm nổi bật:</h4>
               <ul>
-                {product.features.map((feature, index) => (
+                {(product.features || []).map((feature, index) => (
                   <li key={index}>{feature}</li>
                 ))}
               </ul>
@@ -348,13 +330,18 @@ const ProductDetail = () => {
                 to={`/product/${relatedProduct.id}`}
                 className="prod-related-product-card"
               >
-                <img src={relatedProduct.image} alt={relatedProduct.name} />
+                <img 
+                  src={relatedProduct.images && relatedProduct.images.length > 0 
+                    ? relatedProduct.images[0].image 
+                    : '/assets/images/products/placeholder-product.jpg'} 
+                  alt={relatedProduct.name} 
+                />
                 <h4>{relatedProduct.name}</h4>
                 <div className="prod-related-rating">
                   {renderStars(relatedProduct.rating)}
                 </div>
                 <p className="prod-related-price">
-                  {relatedProduct.price.toLocaleString()}đ
+                  {relatedProduct.price.toLocaleString('vi-VN')}đ
                 </p>
               </Link>
             ))}

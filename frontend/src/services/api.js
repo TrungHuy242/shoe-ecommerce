@@ -1,21 +1,31 @@
-import axios from 'axios';
+// src/services/api.js
+import axios from "axios";
 
 const api = axios.create({
-  baseURL: 'http://127.0.0.1:8000/api/',
+  baseURL: "http://127.0.0.1:8000/api/",
   headers: {
-    'Content-Type': 'application/json',
+    "Content-Type": "application/json",
   },
 });
 
+// Interceptor thêm token cho mọi request (trừ endpoint auth công khai)
 api.interceptors.request.use(
   (config) => {
-    // Chỉ thêm token cho các endpoint cần xác thực (tránh /token/, /register/, /products/, /categories/, /genders/, /sizes/, /colors/)
-    if (config.url.includes('token') || config.url.includes('register') || config.url.includes('products') || config.url.includes('categories') || config.url.includes('genders') || config.url.includes('sizes') || config.url.includes('colors')) {
-      return config;
-    }
-    const token = localStorage.getItem('token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+    const noAuthUrls = [
+      "token/",
+      "register/",
+      "categories/",
+      "genders/",
+      "brands/",
+      "products/",
+    ];
+
+    // Nếu url không thuộc danh sách công khai => thêm token
+    if (!noAuthUrls.some((url) => config.url.includes(url))) {
+      const token = localStorage.getItem("access_token"); // 🔥 đổi key cho đồng nhất
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
     }
     return config;
   },

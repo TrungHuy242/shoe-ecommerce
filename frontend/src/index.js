@@ -1,14 +1,18 @@
+// src/index.js
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import { ThemeProvider } from 'styled-components';
-import { theme } from './styles/theme'; // Import theme từ theme.js
-import { GlobalStyle } from './styles/global'; // Import GlobalStyle từ global.js
+import { theme } from './styles/theme';
+import { GlobalStyle } from './styles/global';
+import { AuthProvider } from './context/AuthContext'; // Import AuthProvider
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
   <ThemeProvider theme={theme}>
     <GlobalStyle />
-    <App />
+    <AuthProvider>
+      <App />
+    </AuthProvider>
   </ThemeProvider>
 );
