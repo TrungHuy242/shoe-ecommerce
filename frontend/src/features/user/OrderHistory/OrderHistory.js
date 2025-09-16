@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { 
-  FaClipboardList, 
-  FaSearch, 
-  FaEye, 
+import { Link, useNavigate } from 'react-router-dom';
+import {
+  FaClipboardList,
+  FaSearch,
+  FaEye,
   FaStar,
   FaShoppingCart,
   FaTruck,
@@ -14,8 +14,21 @@ import {
   FaReceipt
 } from 'react-icons/fa';
 import './OrderHistory.css';
+import api from '../../../services/api';
+
+const getStatusMeta = (status) => {
+  switch (status) {
+    case 'processing': return { label: 'Đang xử lý', className: 'processing', Icon: FaClipboardList };
+    case 'shipping':   return { label: 'Đang giao',   className: 'shipping',   Icon: FaTruck };
+    case 'delivered':  return { label: 'Đã giao',     className: 'delivered',  Icon: FaCheck };
+    case 'cancelled':  return { label: 'Đã hủy',      className: 'cancelled',  Icon: FaTimes };
+    default:           return { label: 'Đang xử lý',  className: 'processing', Icon: FaClipboardList };
+  }
+};
 
 const OrderHistory = () => {
+  const navigate = useNavigate();
+
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -23,188 +36,112 @@ const OrderHistory = () => {
   const [dateFilter, setDateFilter] = useState('all');
   const [showFilters, setShowFilters] = useState(false);
 
-  const mockOrders = [
-    {
-      id: 'FT1706432100001',
-      date: '2025-01-28',
-      status: 'delivered',
-      total: 8970000,
-      items: [
-        {
-          id: 1,
-          name: 'Sneaker Da Trắng Premium',
-          price: 2490000,
-          quantity: 2,
-          image: '/assets/images/products/giày.jpg',
-          size: '42',
-          color: 'Trắng'
-        },
-        {
-          id: 2,
-          name: 'Oxford Da Đen',
-          price: 3990000,
-          quantity: 1,
-          image: '/assets/images/products/giày.jpg',
-          size: '41',
-          color: 'Đen'
-        }
-      ],
-      shipping: {
-        address: '123 Lê Lợi, Quận 1, TP.HCM',
-        method: 'Standard',
-        fee: 0
-      },
-      payment: {
-        method: 'card',
-        status: 'paid'
-      },
-      tracking: 'VN123456789',
-      estimatedDelivery: '2025-01-30',
-      canReview: true,
-      canReorder: true
-    },
-    {
-      id: 'FT1706345200002',
-      date: '2025-01-25',
-      status: 'shipping',
-      total: 4200000,
-      items: [
-        {
-          id: 3,
-          name: 'Boots Da Cao Cổ',
-          price: 4200000,
-          quantity: 1,
-          image: '/assets/images/products/giày.jpg',
-          size: '43',
-          color: 'Nâu'
-        }
-      ],
-      shipping: {
-        address: '456 Nguyễn Huệ, Quận 1, TP.HCM',
-        method: 'Express',
-        fee: 30000
-      },
-      payment: {
-        method: 'cod',
-        status: 'pending'
-      },
-      tracking: 'VN987654321',
-      estimatedDelivery: '2025-01-29',
-      canReview: false,
-      canReorder: true
-    },
-    {
-      id: 'FT1706258300003',
-      date: '2025-01-22',
-      status: 'processing',
-      total: 2580000,
-      items: [
-        {
-          id: 4,
-          name: 'Sandal Da Tối Giản',
-          price: 1290000,
-          quantity: 2,
-          image: '/assets/images/products/giày.jpg',
-          size: '40',
-          color: 'Be'
-        }
-      ],
-      shipping: {
-        address: '789 Hai Bà Trưng, Quận 3, TP.HCM',
-        method: 'Standard',
-        fee: 0
-      },
-      payment: {
-        method: 'paypal',
-        status: 'paid'
-      },
-      tracking: null,
-      estimatedDelivery: '2025-01-31',
-      canReview: false,
-      canReorder: true
-    },
-    {
-      id: 'FT1706171400004',
-      date: '2025-01-20',
-      status: 'cancelled',
-      total: 3990000,
-      items: [
-        {
-          id: 5,
-          name: 'Giày Thể Thao Nike',
-          price: 3990000,
-          quantity: 1,
-          image: '/assets/images/products/giày.jpg',
-          size: '42',
-          color: 'Đỏ'
-        }
-      ],
-      shipping: {
-        address: '321 Lý Tự Trọng, Quận 1, TP.HCM',
-        method: 'Express',
-        fee: 30000
-      },
-      payment: {
-        method: 'card',
-        status: 'refunded'
-      },
-      tracking: null,
-      estimatedDelivery: null,
-      canReview: false,
-      canReorder: true,
-      cancelReason: 'Hết hàng'
+  const getCurrentUserId = () => {
+    try {
+      const token = localStorage.getItem('access_token');
+      if (!token) return null;
+      const payload = token.split('.')[1];
+      const decoded = JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')));
+      return decoded.user_id || decoded.userId || null;
+    } catch {
+      return null;
     }
-  ];
-
-  const statusConfig = {
-    processing: { label: 'Đang xử lý', color: '#f7931e', icon: FaClipboardList },
-    shipping: { label: 'Đang giao', color: '#667eea', icon: FaTruck },
-    delivered: { label: 'Đã giao', color: '#38a169', icon: FaCheck },
-    cancelled: { label: 'Đã hủy', color: '#e53e3e', icon: FaTimes }
   };
 
   useEffect(() => {
-    setTimeout(() => {
-      setOrders(mockOrders);
-      setLoading(false);
-    }, 1000);
+    const loadOrders = async () => {
+      try {
+        const uid = getCurrentUserId();
+        if (!uid) {
+          setOrders([]);
+          setLoading(false);
+          return;
+        }
+
+        // 1) Lấy danh sách đơn của user
+        const ordersRes = await api.get('orders/', { params: { user: uid, ordering: '-created_at' } });
+        const rawOrders = Array.isArray(ordersRes.data) ? ordersRes.data : (ordersRes.data.results || []);
+
+        // 2) Enrich mỗi đơn với order-details và thông tin product
+        const enriched = await Promise.all(rawOrders.map(async (o) => {
+          const detailsRes = await api.get('order-details/', { params: { order: o.id } });
+          const details = Array.isArray(detailsRes.data) ? detailsRes.data : (detailsRes.data.results || []);
+
+          const products = await Promise.all(
+            details.map(d => api.get(`products/${d.product}/`).then(r => r.data).catch(() => null))
+          );
+
+          const items = details.map((d, idx) => {
+            const p = products[idx];
+            return {
+              id: d.id,
+              name: p?.name || `Sản phẩm #${d.product}`,
+              price: Number(d.unit_price || 0),
+              quantity: d.quantity || 1,
+              image: (p?.images && p.images[0]?.image) || p?.image || '/assets/images/products/giày.jpg',
+              size: d.size || '',
+              color: d.color || ''
+            };
+          });
+
+          const computedTotal = items.reduce((s, it) => s + it.price * it.quantity, 0);
+          const total = Number(o.total || 0) > 0 ? Number(o.total) : computedTotal;
+
+          const statusMap = { pending: 'processing', shipped: 'shipping', delivered: 'delivered', cancelled: 'cancelled' };
+          const uiStatus = statusMap[o.status] || 'processing';
+
+          return {
+            id: 'FT' + o.id,
+            rawId: o.id,
+            date: (o.created_at || '').slice(0, 10),
+            status: uiStatus,
+            total,
+            items,
+            shipping: { address: '', method: '', fee: 0 },
+            payment: { method: o.payment_method || '', status: o.status === 'delivered' ? 'paid' : 'pending' },
+            tracking: null,
+            estimatedDelivery: null,
+            canReview: uiStatus === 'delivered',
+            canReorder: true
+          };
+        }));
+
+        setOrders(enriched);
+      } catch (e) {
+        console.error('Load orders error:', e?.response?.data || e.message);
+        setOrders([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadOrders();
   }, []);
 
-  const handleReorder = (orderId) => {
-    const order = orders.find(o => o.id === orderId);
-    if (order) {
-      console.log('Reordering:', order.items);
-      alert(`Đã thêm ${order.items.length} sản phẩm vào giỏ hàng!`);
-    }
-  };
-
-  const handleCancelOrder = (orderId) => {
-    if (window.confirm('Bạn có chắc muốn hủy đơn hàng này?')) {
-      setOrders(prev => prev.map(order => 
-        order.id === orderId 
-          ? { ...order, status: 'cancelled', cancelReason: 'Hủy bởi khách hàng' }
-          : order
-      ));
-    }
+  const formatDate = (dateString) => {
+    if (!dateString) return '';
+    return new Date(dateString).toLocaleDateString('vi-VN', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    });
   };
 
   const filteredOrders = orders
     .filter(order => {
-      const matchesSearch = 
-        order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        order.items.some(item => 
-          item.name.toLowerCase().includes(searchTerm.toLowerCase())
-        );
-      
+      const matchesSearch =
+        String(order.id).toLowerCase().includes(searchTerm.toLowerCase()) ||
+        order.items.some(item => item.name.toLowerCase().includes(searchTerm.toLowerCase()));
+
       const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
-      
+
       const matchesDate = (() => {
         if (dateFilter === 'all') return true;
         const orderDate = new Date(order.date);
         const today = new Date();
         const diffTime = Math.abs(today - orderDate);
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        
+
         switch (dateFilter) {
           case 'week': return diffDays <= 7;
           case 'month': return diffDays <= 30;
@@ -212,17 +149,54 @@ const OrderHistory = () => {
           default: return true;
         }
       })();
-      
+
       return matchesSearch && matchesStatus && matchesDate;
     })
     .sort((a, b) => new Date(b.date) - new Date(a.date));
 
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('vi-VN', {
-      day: '2-digit',
-      month: '2-digit', 
-      year: 'numeric'
-    });
+  const handleViewDetail = (orderIdWithPrefix, rawId) => {
+    const id = rawId || String(orderIdWithPrefix).replace(/^FT/, '');
+    navigate(`/order/${id}`);
+  };
+
+  const getOrCreateCartId = async () => {
+    const res = await api.get('carts/');
+    const carts = Array.isArray(res.data) ? res.data : (res.data.results || []);
+    if (carts.length) return carts[0].id;
+    const uid = getCurrentUserId();
+    const created = await api.post('carts/', { user: uid });
+    return created.data.id;
+  };
+
+  const handleReorder = async (orderIdWithPrefix, rawId) => {
+    try {
+      const id = rawId || String(orderIdWithPrefix).replace(/^FT/, '');
+      const detailsRes = await api.get('order-details/', { params: { order: id } });
+      const details = Array.isArray(detailsRes.data) ? detailsRes.data : (detailsRes.data.results || []);
+      if (!details.length) return;
+
+      const cartId = await getOrCreateCartId();
+      await Promise.all(details.map(d =>
+        api.post('cart-items/', { cart: cartId, product: d.product, quantity: d.quantity }).catch(() => {})
+      ));
+      navigate('/cart');
+    } catch (e) {
+      console.error('Reorder error:', e?.response?.data || e.message);
+      alert('Không thể mua lại. Vui lòng thử lại.');
+    }
+  };
+
+  const handleCancelOrder = async (orderIdWithPrefix, rawId) => {
+    if (!window.confirm('Bạn có chắc muốn hủy đơn hàng này?')) return;
+    try {
+      const id = rawId || String(orderIdWithPrefix).replace(/^FT/, '');
+      await api.post(`orders/${id}/cancel/`);
+      setOrders(prev => prev.map(o => (o.rawId === Number(id) ? { ...o, status: 'cancelled' } : o)));
+      alert('Đã hủy đơn và hoàn kho thành công.');
+    } catch (e) {
+      console.error('Cancel order error:', e?.response?.data || e.message);
+      alert(e?.response?.data?.detail || 'Hủy đơn thất bại.');
+    }
   };
 
   if (loading) {
@@ -250,7 +224,7 @@ const OrderHistory = () => {
               </h1>
               <p>{orders.length} đơn hàng</p>
             </div>
-            
+
             <div className="oh-header-stats">
               <div className="oh-stat">
                 <span className="oh-stat-number">{orders.filter(o => o.status === 'delivered').length}</span>
@@ -262,7 +236,7 @@ const OrderHistory = () => {
               </div>
               <div className="oh-stat">
                 <span className="oh-stat-number">
-                  {orders.reduce((sum, order) => sum + order.total, 0).toLocaleString()}đ
+                  {orders.reduce((sum, order) => sum + order.total, 0).toLocaleString('vi-VN')}đ
                 </span>
                 <span className="oh-stat-label">Tổng chi tiêu</span>
               </div>
@@ -281,7 +255,7 @@ const OrderHistory = () => {
             />
           </div>
 
-          <button 
+          <button
             className={`oh-filter-toggle ${showFilters ? 'oh-active' : ''}`}
             onClick={() => setShowFilters(!showFilters)}
           >
@@ -319,7 +293,7 @@ const OrderHistory = () => {
             <FaClipboardList className="oh-no-orders-icon" />
             <h3>Không tìm thấy đơn hàng nào</h3>
             <p>
-              {searchTerm || statusFilter !== 'all' || dateFilter !== 'all' 
+              {searchTerm || statusFilter !== 'all' || dateFilter !== 'all'
                 ? 'Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm'
                 : 'Bạn chưa có đơn hàng nào. Hãy bắt đầu mua sắm!'}
             </p>
@@ -332,8 +306,8 @@ const OrderHistory = () => {
         ) : (
           <div className="oh-orders-list">
             {filteredOrders.map(order => {
-              const StatusIcon = statusConfig[order.status].icon;
-              
+              const { label, className, Icon: StatusIcon } = getStatusMeta(order.status);
+
               return (
                 <div key={order.id} className="oh-order-card">
                   <div className="oh-order-header">
@@ -343,15 +317,15 @@ const OrderHistory = () => {
                         <span className="oh-order-date">
                           <FaCalendarAlt /> {formatDate(order.date)}
                         </span>
-                        <span className={`oh-order-status ${order.status}`}>
+                        <span className={`oh-order-status ${className}`}>
                           <StatusIcon />
-                          {statusConfig[order.status].label}
+                          {label}
                         </span>
                       </div>
                     </div>
-                    
+
                     <div className="oh-order-total">
-                      {order.total.toLocaleString()}đ
+                      {order.total.toLocaleString('vi-VN')}đ
                     </div>
                   </div>
 
@@ -362,57 +336,38 @@ const OrderHistory = () => {
                         <div className="oh-item-details">
                           <h4>{item.name}</h4>
                           <div className="oh-item-specs">
-                            Size: {item.size} | Màu: {item.color} | SL: {item.quantity}
+                            Size: {item.size || '-'} | Màu: {item.color || '-'} | SL: {item.quantity}
                           </div>
                           <div className="oh-item-price">
-                            {item.price.toLocaleString()}đ
+                            {item.price.toLocaleString('vi-VN')}đ
                           </div>
                         </div>
                       </div>
                     ))}
                   </div>
 
-                  {order.status === 'shipping' && order.tracking && (
-                    <div className="oh-tracking-info">
-                      <div className="oh-tracking-number">
-                        <strong>Mã vận đơn:</strong> {order.tracking}
-                      </div>
-                      <div className="oh-estimated-delivery">
-                        <strong>Dự kiến giao:</strong> {formatDate(order.estimatedDelivery)}
-                      </div>
-                    </div>
-                  )}
-
-                  {order.status === 'cancelled' && order.cancelReason && (
-                    <div className="oh-cancel-info">
-                      <strong>Lý do hủy:</strong> {order.cancelReason}
-                    </div>
-                  )}
-
                   <div className="oh-order-actions">
-                    <Link to={`/order/${order.id}`} className="oh-view-detail-btn">
+                    <Link
+                      to="#"
+                      className="oh-view-detail-btn"
+                      onClick={(e)=>{ e.preventDefault(); handleViewDetail(order.id, order.rawId); }}
+                    >
                       <FaEye /> Chi tiết
                     </Link>
 
                     {order.canReorder && (
-                      <button 
+                      <button
                         className="oh-reorder-btn"
-                        onClick={() => handleReorder(order.id)}
+                        onClick={() => handleReorder(order.id, order.rawId)}
                       >
                         <FaShoppingCart /> Mua lại
                       </button>
                     )}
 
-                    {order.canReview && order.status === 'delivered' && (
-                      <Link to={`/review/${order.id}`} className="oh-review-btn">
-                        <FaStar /> Đánh giá
-                      </Link>
-                    )}
-
-                    {order.status === 'processing' && (
-                      <button 
+                    {order.status !== 'cancelled' && (
+                      <button
                         className="oh-cancel-btn"
-                        onClick={() => handleCancelOrder(order.id)}
+                        onClick={() => handleCancelOrder(order.id, order.rawId)}
                       >
                         <FaTimes /> Hủy đơn
                       </button>

@@ -1,11 +1,10 @@
 import { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import api from '../../../services/api';
 import { 
   FaHeart, 
   FaShoppingCart, 
   FaStar, 
-  FaShare,
   FaTruck,
   FaShieldAlt,
   FaExchangeAlt,
@@ -25,8 +24,13 @@ const ProductDetail = () => {
   const [selectedColor, setSelectedColor] = useState('');
   const [quantity, setQuantity] = useState(1);
   const [isLiked, setIsLiked] = useState(false);
+  const [wishlistId, setWishlistId] = useState(null);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  const navigate = useNavigate();
+  const vnd = new Intl.NumberFormat('vi-VN'); // format VND
 
   useEffect(() => {
     const fetchProductData = async () => {
@@ -60,6 +64,7 @@ const ProductDetail = () => {
 
         // Set default selected color
         setSelectedColor(productColors[0]?.value || '');
+        setCurrentImageIndex(0);
 
         // Fetch related products
         const relatedResponse = await api.get('products/', { 
@@ -70,6 +75,8 @@ const ProductDetail = () => {
         // Store sizes and colors for reference
         setSizes(sizesData);
         setColors(colorsData);
+
+        await loadWishlistStatus(productData.id);
 
         console.log('Product data:', productData);
         console.log('Product sizes:', productSizes);
@@ -84,26 +91,141 @@ const ProductDetail = () => {
     fetchProductData();
   }, [id]);
 
-  const handleAddToCart = () => {
-    if (!selectedSize) {
-      alert('Vui lòng chọn size!');
-      return;
+  const getCurrentUserId = () => {
+    try {
+      const token = localStorage.getItem('access_token');
+      if (!token) return null;
+      const payload = token.split('.')[1];
+      const decoded = JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')));
+      return decoded.user_id || decoded.userId || null;
+    } catch {
+      return null;
     }
-    
-    const cartItem = {
-      id: product.id,
-      name: product.name,
-      price: product.price,
-      image: product.images && product.images.length > 0 
-        ? product.images[0].image 
-        : '/assets/images/products/placeholder-product.jpg',
-      size: selectedSize,
-      color: selectedColor,
-      quantity: quantity
-    };
-    
-    console.log('Added to cart:', cartItem);
-    alert('Đã thêm sản phẩm vào giỏ hàng!');
+  };
+  const loadWishlistStatus = async (productId) => {
+    try {
+      const userId = getCurrentUserId();
+      if (!userId){
+        setIsLiked(false);
+        setWishlistId(null);
+        return;
+      }
+      const res = await api.get('wishlists/');
+      const list = Array.isArray(res.data) ? res.data : (res.data.results || []);
+      const found = list.find(w => w.product === productId);
+      setIsLiked(!!found);
+      setWishlistId(found ? found.id : null);
+    } catch (e) {
+      console.error('Load wishlist status error:', e?.response?.data || e.message);
+      setIsLiked(false);
+      setWishlistId(null);
+    }
+  };
+
+  const toggleWishlist = async () => {
+    const userId = getCurrentUserId();
+    if (!userId) {navigate('/login'); return;}
+    try{
+      if (!isLiked){
+        const res = await api.post('wishlists/', { user: userId, product: product.id });
+        setIsLiked(true);
+        setWishlistId(res?.data?.id || null);
+      } else if (wishlistId){
+        await api.delete(`wishlists/${wishlistId}/`);
+        setIsLiked(false);
+        setWishlistId(null)
+      } else {
+      const res = await api.delete('wishlists/');
+      const list = Array.isArray(res.data) ? res.data : (res.data.results || []);
+      const found = list.find(w => w.product === product.id);
+      if (found){
+        await api.delete(`wishlists/${found.id}/`);
+      }
+      setIsLiked(false);
+      setWishlistId(null);
+      }
+    } catch (e) {
+      console.error('Toggle wishlist error:', e?.response?.data || e.message);
+    }
+  };
+
+  const getOrCreateCartId = async () => {
+    const cartsRes = await api.get('carts/');
+    const carts = Array.isArray(cartsRes.data) ? cartsRes.data : (cartsRes.data.results || []);
+    if (carts.length > 0) return carts[0].id;
+    const userId = getCurrentUserId();
+    const created = await api.post('carts/', { user: userId });
+    return created.data.id;
+  };
+
+  const isProductInCart = async (productId) => {
+    const itemsRes = await api.get('cart-items/');
+    const items = Array.isArray(itemsRes.data) ? itemsRes.data : (itemsRes.data.results || []);
+    return items.some(ci => ci.product === productId);
+  };
+
+  const handleAddToCart = async () => {
+    if (!selectedSize) { alert('Vui lòng chọn size!'); return; }
+    if (!selectedColor) { alert('Vui lòng chọn màu!'); return; }
+
+    const userId = getCurrentUserId();
+    if (!userId) { navigate('/login'); return; }
+
+    try {
+      if (await isProductInCart(product.id)) {
+        alert('Sản phẩm này đã có trong giỏ hàng.');
+        return;
+      }
+      const cartId = await getOrCreateCartId();
+      const res = await api.post('cart-items/', {
+        cart: cartId,
+        product: product.id,
+        quantity
+      });
+      // Lưu meta size/color vào localStorage theo cartItemId
+      const createdId = res?.data?.id;
+      if (createdId) {
+        const metaRaw = localStorage.getItem('cart_item_meta');
+        const meta = metaRaw ? JSON.parse(metaRaw) : {};
+        meta[createdId] = { size: selectedSize, color: selectedColor };
+        localStorage.setItem('cart_item_meta', JSON.stringify(meta));
+      }
+      alert('Đã thêm sản phẩm vào giỏ hàng!');
+    } catch (e) {
+      console.error('Add to cart error:', e?.response?.data || e.message);
+      if (e?.response?.status === 401) navigate('/login');
+      else alert('Không thể thêm sản phẩm. Vui lòng thử lại.');
+    }
+  };
+
+  const handleBuyNow = async () => {
+    if (!selectedSize) { alert('Vui lòng chọn size!'); return; }
+    if (!selectedColor) { alert('Vui lòng chọn màu!'); return; }
+
+    const userId = getCurrentUserId();
+    if (!userId) { navigate('/login'); return; }
+
+    try {
+      navigate('/checkout', {
+        state: {
+          buyNow: true,
+          items: [{
+            id: Date.now(),
+            productId: product.id,
+            name: product.name,
+            price: Number(product.price || 0),
+            quantity,
+            size: selectedSize,
+            color: selectedColor,
+            image: (product.images && product.images[0]?.image) || '/assets/images/products/placeholder-product.jpg'
+          }]
+        }
+      });
+    } catch (e) {
+      console.error('Buy now error:', e?.response?.data || e.message);
+      if (e?.response?.status === 401) navigate('/login');
+      else alert('Không thể thực hiện mua ngay. Vui lòng thử lại.');
+    }
   };
 
   const renderStars = (rating) => {
@@ -157,24 +279,40 @@ const ProductDetail = () => {
         </div>
 
         <div className="prod-product-detail-content">
-          <div className="prod-product-images">
-            <div className="prod-main-image">
-              <img 
-                src={product.images && product.images.length > 0 
-                  ? product.images[0].image 
-                  : '/assets/images/products/placeholder-product.jpg'} 
-                alt={product.name}
-                onError={(e) => {
-                  e.target.src = '/assets/images/products/placeholder-product.jpg';
-                }}
-              />
-              {product.originalPrice && product.originalPrice > product.price && (
-                <div className="prod-discount-badge">
-                  -{Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)}%
-                </div>
-              )}
-            </div>
+        <div className="prod-product-images">
+          <div className="prod-main-image">
+            <img 
+              src={
+                product.images && product.images.length > 0 
+                  ? (product.images[currentImageIndex]?.image || product.images[0].image)
+                  : '/assets/images/products/placeholder-product.jpg'
+              } 
+              alt={product.name}
+              onError={(e) => {
+                e.target.src = '/assets/images/products/placeholder-product.jpg';
+              }}
+            />
+            {product.originalPrice && product.originalPrice > product.price && (
+              <div className="prod-discount-badge">
+                -{Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)}%
+              </div>
+            )}
           </div>
+
+          {/* Thumbnails ảnh nhỏ mờ */}
+          <div className="prod-thumbnails">
+            {(product.images || []).map((img, idx) => (
+              <button
+                key={idx}
+                className={`prod-thumb ${idx === currentImageIndex ? 'prod-thumb-active' : ''}`}
+                onClick={() => setCurrentImageIndex(idx)}
+                aria-label={`Ảnh ${idx + 1}`}
+              >
+                <img src={img.image} alt={`thumb-${idx}`} />
+              </button>
+            ))}
+          </div>
+        </div>
 
           <div className="prod-product-info">
             <h1>{product.name}</h1>
@@ -188,11 +326,11 @@ const ProductDetail = () => {
 
             <div className="prod-product-price">
               <span className="prod-current-price">
-                {product.price.toLocaleString('vi-VN')}đ
+                {vnd.format(product.price)}đ
               </span>
               {product.originalPrice && product.originalPrice > product.price && (
                 <span className="prod-original-price">
-                  {product.originalPrice.toLocaleString('vi-VN')}đ
+                  {vnd.format(product.originalPrice)}đ
                 </span>
               )}
             </div>
@@ -259,17 +397,16 @@ const ProductDetail = () => {
               <button className="prod-add-to-cart-btn" onClick={handleAddToCart}>
                 <FaShoppingCart />
               </button>
-              <button className="prod-buy-now-btn" onClick={handleAddToCart}>
+              <button className="prod-buy-now-btn" onClick={handleBuyNow}>
                 Mua Ngay
               </button>
               <button 
                 className={`prod-wishlist-btn ${isLiked ? 'prod-liked' : ''}`}
-                onClick={() => setIsLiked(!isLiked)}
+                onClick={toggleWishlist}
+                aria-pressed={isLiked}
+                title={isLiked ? 'Bỏ khỏi yêu thích' : 'Thêm vào yêu thích'}
               >
                 <FaHeart />
-              </button>
-              <button className="prod-share-btn">
-                <FaShare />
               </button>
             </div>
 
@@ -341,7 +478,7 @@ const ProductDetail = () => {
                   {renderStars(relatedProduct.rating)}
                 </div>
                 <p className="prod-related-price">
-                  {relatedProduct.price.toLocaleString('vi-VN')}đ
+                  {vnd.format(relatedProduct.price)}đ
                 </p>
               </Link>
             ))}

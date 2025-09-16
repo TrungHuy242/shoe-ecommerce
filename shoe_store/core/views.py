@@ -1,4 +1,5 @@
 # core/views.py
+from ast import Or
 from rest_framework import viewsets, filters
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.permissions import AllowAny, IsAuthenticatedOrReadOnly
@@ -11,8 +12,11 @@ from .serializers import ProductSerializer, CategorySerializer, BrandSerializer,
 import google.generativeai as genai
 from .permissions import IsAdminOrReadOnly, IsCustomerOrAdmin
 from rest_framework import status
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import action ,api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
+from django.db import transaction
+from django.db.models import F
+
 
 # Create your views here.
 # Create your views here.
@@ -72,8 +76,6 @@ class ProductViewSet(viewsets.ModelViewSet):
 
             return Response(serializer.data)
         return Response(serializer.errors, status=400)
-    
-    from rest_framework.decorators import action
     @action(detail=True, methods=['get'])
     def suggestions(self, request, pk=None):
         product = self.get_object()
@@ -162,11 +164,65 @@ class OrderViewSet(viewsets.ModelViewSet):
         order = serializer.save(user=self.request.user)  # Gán user hiện tại
         order.total = sum(detail.unit_price * detail.quantity for detail in order.orderdetail_set.all())
         order.save()
+    
+    @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated])
+    def cancel(self, request, pk=None):
+        try:
+            with transaction.atomic():
+                order = self.get_object()
+                if not (request.user.is_superuser or order.user_id == request.user.id):
+                    return Response({"detail": "Bạn không có quyền hủy đơn hàng"}, status=status.HTTP_403_FORBIDDEN)
+                if order.status == 'cancelled':
+                    return Response({"detail": "Đơn hàng đã bị hủy"}, status=status.HTTP_400_BAD_REQUEST)
+
+                details = OrderDetail.objects.select_related('product').filter(order=order)
+                for d in details:
+                    Product.objects.filter(pk=d.product_id).update(
+                        stock_quantity=F('stock_quantity') + d.quantity,
+                        sales_count=F('sales_count') - d.quantity
+                    )
+                order.status = 'cancelled'
+                order.total = 0
+                order.save(update_fields=['status','total'])
+                return Response({'message': 'Đã hủy đơn và hoàn kho thành công'})
+        except Exception as e:
+            return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 class OrderDetailViewSet(viewsets.ModelViewSet):
     queryset = OrderDetail.objects.all()
     serializer_class = OrderDetailSerializer
     permission_classes = [IsAuthenticatedOrReadOnly]
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ['order']
+
+    def create(self, request, *args, **kwargs):
+        try:
+            with transaction.atomic():
+                serializer = self.get_serializer(data=request.data)
+                serializer.is_valid(raise_exception=True)
+
+                product = serializer.validated_data['product']
+                qty = int(serializer.validated_data['quantity'])
+
+                # khóa dòng sản phẩm để cập nhật an toàn
+                product_locked = Product.objects.select_for_update().get(pk=product.id)
+
+                if product_locked.stock_quantity < qty:
+                    return Response({"detail": "Số lượng tồn kho không đủ"}, status=status.HTTP_400_BAD_REQUEST)
+
+                self.perform_create(serializer)
+
+                Product.objects.filter(pk=product_locked.id).update(
+                    stock_quantity=F('stock_quantity') - qty,
+                    sales_count=F('sales_count') + qty
+                )
+
+                headers = self.get_success_headers(serializer.data)
+                return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+        except Product.DoesNotExist:
+            return Response({"detail": "Sản phẩm không tồn tại"}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 class PaymentViewSet(viewsets.ModelViewSet):
     queryset = Payment.objects.all()

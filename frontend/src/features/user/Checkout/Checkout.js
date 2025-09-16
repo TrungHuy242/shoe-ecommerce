@@ -1,8 +1,7 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { 
-  FaCreditCard, 
-  FaPaypal, 
+  FaQrcode,
   FaMoneyBillWave, 
   FaShieldAlt, 
   FaCheck,
@@ -12,11 +11,16 @@ import {
   FaUser
 } from 'react-icons/fa';
 import './Checkout.css';
+import api from '../../../services/api';
 
 const Checkout = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const buyNowItems = location.state?.buyNow ? (location.state?.items || []) : null;
+  const stateItems = !location.state?.buyNow ? (location.state?.items || null) : null;
+
   const [currentStep, setCurrentStep] = useState(1);
-  const [paymentMethod, setPaymentMethod] = useState('card');
+  const [paymentMethod, setPaymentMethod] = useState('qr');
   const [loading, setLoading] = useState(false);
   
   const [shippingInfo, setShippingInfo] = useState({
@@ -37,31 +41,78 @@ const Checkout = () => {
     cardName: ''
   });
 
-  const cartItems = [
-    {
-      id: 1,
-      name: "Sneaker Da Trắng Premium",
-      price: 2490000,
-      quantity: 2,
-      size: "42",
-      color: "Trắng",
-      image: "/assets/images/products/giày.jpg"
-    },
-    {
-      id: 2,
-      name: "Oxford Da Đen",
-      price: 3990000,
-      quantity: 1,
-      size: "41", 
-      color: "Đen",
-      image: "/assets/images/products/giày.jpg"
-    }
-  ];
+  const [cartItems, setCartItems] = useState(buyNowItems || []);
+  const [loadingCart, setLoadingCart] = useState(!buyNowItems);
 
-  const subtotal = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-  const shipping = 30000;
-  const tax = Math.round(subtotal * 0.1);
-  const total = subtotal + shipping + tax;
+  const prefillShipping = async () => {
+    try {
+      const userLocal = localStorage.getItem('user');
+      const uid = userLocal ? JSON.parse(userLocal)?.id : null;
+      if (!uid) return;
+      const res = await api.get(`users/${uid}/`);
+      const u = res.data || {};
+      setShippingInfo(prev => ({
+        ...prev,
+        fullName: u.name || prev.fullName,
+        email: u.email || prev.email,
+        phone: u.phone || prev.phone,
+        address: u.address || prev.address,
+        city: u.city || prev.city,
+        district: u.district || prev.district
+      }));
+    } catch {}
+  };
+
+  useEffect(() => {
+    if (buyNowItems) {
+      setLoadingCart(false);
+      return;
+    }
+    if (stateItems) {
+      setCartItems(stateItems);
+      setLoadingCart(false);
+      return;
+    }
+    const loadCart = async () => {
+      try {
+        setLoadingCart(true);
+        const itemsRes = await api.get('cart-items/');
+        const raw = Array.isArray(itemsRes.data) ? itemsRes.data : (itemsRes.data.results || []);
+        const productDetails = await Promise.all(
+          raw.map(ci => api.get(`products/${ci.product}/`).then(r => r.data).catch(() => null))
+        );
+        const metaRaw = localStorage.getItem('cart_item_meta');
+        const meta = metaRaw ? JSON.parse(metaRaw) : {};
+        const merged = raw.map((ci, idx) => {
+          const p = productDetails[idx];
+          const item = {
+            id: ci.id,
+            productId: ci.product,
+            name: p?.name || 'Sản phẩm',
+            price: Number(p?.price || 0),
+            quantity: ci.quantity || 1,
+            size: meta[ci.id]?.size || '',
+            color: meta[ci.id]?.color || '',
+            image: (p?.images && p.images[0]?.image) || p?.image || '/assets/images/products/giày.jpg'
+          };
+          return item;
+        });
+        setCartItems(merged);
+      } catch (e) {
+        console.error('Load cart error:', e?.response?.data || e.message);
+        setCartItems([]);
+      } finally {
+        setLoadingCart(false);
+      }
+    };
+  
+    loadCart();
+    prefillShipping();
+  }, [buyNowItems, stateItems]);
+
+  const subtotal = cartItems.reduce((s, it) => s + it.price * it.quantity, 0);
+  const shipping = cartItems.length > 0 ? 30000 : 0;
+  const total = subtotal + shipping;
 
   const handleShippingChange = (e) => {
     const { name, value } = e.target;
@@ -101,17 +152,54 @@ const Checkout = () => {
   };
 
   const handlePlaceOrder = async () => {
+    if (cartItems.length === 0) return;
     setLoading(true);
-    
-    setTimeout(() => {
+    try {
+      const orderTotal = cartItems.reduce((s, it) => s + Number(it.price || 0) * Number(it.quantity || 1), 0);
+      const pm = paymentMethod === 'qr' ? 'qr' : 'cod';
+
+      const orderRes = await api.post('orders/', { payment_method: pm });
+      const orderId = orderRes?.data?.id;
+      if (!orderId) throw new Error('Không tạo được đơn hàng');
+
+      await Promise.all(
+        cartItems.map(it =>
+          api.post('order-details/', {
+            order: orderId,
+            product: it.productId,
+            quantity: it.quantity,
+            unit_price: Number(it.price || 0).toFixed(2),
+            size: it.size || '',
+            color: it.color || ''
+          })
+        )
+      );
+
+      await api.patch(`orders/${orderId}/`, {
+        total: Number(orderTotal).toFixed(2),
+        status: 'pending',
+        payment_method: pm
+      });
+
+      await Promise.all(
+        cartItems
+          .filter(it => Number.isInteger(it.id))
+          .map(it => api.delete(`cart-items/${it.id}/`).catch(() => {}))
+      );
+
       navigate('/order-success', {
         state: {
-          orderNumber: 'FT' + Date.now(),
-          total: total,
+          orderNumber: 'FT' + orderId,
+          total: orderTotal,
           items: cartItems
         }
       });
-    }, 2000);
+    } catch (e) {
+      console.error('Place order error:', e?.response?.data || e.message);
+      alert((e?.response?.data?.detail) || 'Đặt hàng thất bại. Vui lòng thử lại.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const formatCardNumber = (value) => {
@@ -156,7 +244,11 @@ const Checkout = () => {
             {currentStep === 1 && (
               <div className="chk-shipping-form">
                 <h2>Thông tin giao hàng</h2>
-                
+                <div style={{display: 'flex', justifyContent: 'flex-end', marginBottom: '1rem'}}>
+                  <button type='button' className='chk-btn-secondary' onClick={prefillShipping}>
+                    Lấy thông tin tài khoản
+                  </button>
+                </div>
                 <form>
                   <div className="chk-form-row">
                     <div className="chk-form-group">
@@ -228,31 +320,32 @@ const Checkout = () => {
                   <div className="chk-form-row">
                     <div className="chk-form-group">
                       <label htmlFor="city">Tỉnh/Thành phố *</label>
-                      <select
-                        id="city"
-                        name="city"
-                        value={shippingInfo.city}
-                        onChange={handleShippingChange}
-                        required
-                      >
-                        <option value="">Chọn tỉnh/thành phố</option>
-                        <option value="Ho Chi Minh">TP. Hồ Chí Minh</option>
-                        <option value="Ha Noi">Hà Nội</option>
-                        <option value="Da Nang">Đà Nẵng</option>
-                      </select>
+                      <div className="chk-input-wrapper">
+                        <FaMapMarkerAlt className="chk-input-icon" />
+                        <input
+                          type="text"
+                          id="city"
+                          name="city"
+                          value={shippingInfo.city}
+                          onChange={handleShippingChange}
+                          placeholder="VD: TP. Hồ Chí Minh"
+                          required
+                        />
+                      </div>
                     </div>
                     <div className="chk-form-group">
                       <label htmlFor="district">Quận/Huyện</label>
-                      <select
-                        id="district"
-                        name="district"
-                        value={shippingInfo.district}
-                        onChange={handleShippingChange}
-                      >
-                        <option value="">Chọn quận/huyện</option>
-                        <option value="District 1">Quận 1</option>
-                        <option value="District 3">Quận 3</option>
-                      </select>
+                      <div className="chk-input-wrapper">
+                        <FaMapMarkerAlt className="chk-input-icon" />
+                        <input
+                          type="text"
+                          id="district"
+                          name="district"
+                          value={shippingInfo.district}
+                          onChange={handleShippingChange}
+                          placeholder="VD: Quận 1"
+                        />
+                      </div>
                     </div>
                   </div>
 
@@ -277,19 +370,13 @@ const Checkout = () => {
                 
                 <div className="chk-payment-methods">
                   <div
-                    className={`chk-payment-option ${paymentMethod === 'card' ? 'chk-selected' : ''}`}
-                    onClick={() => setPaymentMethod('card')}
+                    className={`chk-payment-option ${paymentMethod === 'qr' ? 'chk-selected' : ''}`}
+                    onClick={() => setPaymentMethod('qr')}
                   >
-                    <FaCreditCard className="chk-payment-icon" />
-                    <span>Thẻ tín dụng/ghi nợ</span>
+                    <FaQrcode className="chk-payment-icon" />
+                    <span>Thanh toán bằng mã QR ngân hàng</span>
                   </div>
-                  <div
-                    className={`chk-payment-option ${paymentMethod === 'paypal' ? 'chk-selected' : ''}`}
-                    onClick={() => setPaymentMethod('paypal')}
-                  >
-                    <FaPaypal className="chk-payment-icon" />
-                    <span>PayPal</span>
-                  </div>
+
                   <div
                     className={`chk-payment-option ${paymentMethod === 'cod' ? 'chk-selected' : ''}`}
                     onClick={() => setPaymentMethod('cod')}
@@ -299,65 +386,32 @@ const Checkout = () => {
                   </div>
                 </div>
 
-                {paymentMethod === 'card' && (
-                  <form className="chk-card-form">
-                    <div className="chk-form-group">
-                      <label htmlFor="cardNumber">Số thẻ *</label>
-                      <input
-                        type="text"
-                        id="cardNumber"
-                        name="cardNumber"
-                        value={paymentInfo.cardNumber}
-                        onChange={(e) => {
-                          const formatted = formatCardNumber(e.target.value);
-                          handlePaymentChange({ target: { name: 'cardNumber', value: formatted } });
-                        }}
-                        placeholder="1234 5678 9012 3456"
-                        maxLength="19"
-                        required
+                {paymentMethod === 'qr' && (
+                  <div style={{ marginTop: '1.5rem' }}>
+                    <p style={{ marginBottom: '0.75rem', color: '#4a5568' }}>
+                      Quét mã QR dưới đây bằng ứng dụng ngân hàng để thanh toán.
+                    </p>
+                    <div style={{ display:'flex', gap:'1.5rem', alignItems:'center', flexWrap:'wrap' }}>
+                      {/* Ảnh QR minh họa - thay bằng ảnh thật nếu có */}
+                      <img
+                        src="../../../../public/assets/images/qrcode.jpg"
+                        alt="QR thanh toán"
+                        style={{ width: 180, height: 180, background:'#f7fafc', borderRadius: 8 }}
+                        onError={(e) => { e.target.style.display = 'none'; }}
                       />
-                    </div>
-                    <div className="chk-form-row">
-                      <div className="chk-form-group">
-                        <label htmlFor="expiryDate">Ngày hết hạn *</label>
-                        <input
-                          type="text"
-                          id="expiryDate"
-                          name="expiryDate"
-                          value={paymentInfo.expiryDate}
-                          onChange={handlePaymentChange}
-                          placeholder="MM/YY"
-                          maxLength="5"
-                          required
-                        />
-                      </div>
-                      <div className="chk-form-group">
-                        <label htmlFor="cvv">CVV *</label>
-                        <input
-                          type="text"
-                          id="cvv"
-                          name="cvv"
-                          value={paymentInfo.cvv}
-                          onChange={handlePaymentChange}
-                          placeholder="123"
-                          maxLength="4"
-                          required
-                        />
+                      <div style={{ color: '#4a5568' }}>
+                        <div><strong>Tổng thanh toán:</strong> {total.toLocaleString('vi-VN')}đ</div>
+                        <div><strong>Nội dung:</strong> FT{Date.now()}</div>
+                        <div style={{ fontSize: 13, marginTop: 8 }}>Sau khi thanh toán thành công, bấm “Đặt hàng” để hoàn tất.</div>
                       </div>
                     </div>
-                    <div className="chk-form-group">
-                      <label htmlFor="cardName">Tên trên thẻ *</label>
-                      <input
-                        type="text"
-                        id="cardName"
-                        name="cardName"
-                        value={paymentInfo.cardName}
-                        onChange={handlePaymentChange}
-                        placeholder="NGUYEN VAN A"
-                        required
-                      />
-                    </div>
-                  </form>
+                  </div>
+                )}
+
+                {paymentMethod === 'cod' && (
+                  <div style={{ marginTop: '1.5rem', color:'#4a5568' }}>
+                    <p>Bạn sẽ thanh toán tiền mặt khi nhận hàng.</p>
+                  </div>
                 )}
 
                 <div className="chk-security-notice">
@@ -386,10 +440,9 @@ const Checkout = () => {
                 <div className="chk-review-section">
                   <h3>Phương thức thanh toán</h3>
                   <div className="chk-review-payment">
-                    {paymentMethod === 'card' && (
-                      <p>Thẻ tín dụng kết thúc bằng **** {paymentInfo.cardNumber.slice(-4)}</p>
+                    {paymentMethod === 'qr' && (
+                      <p>Thanh toán bằng mã QR ngân hàng</p>
                     )}
-                    {paymentMethod === 'paypal' && <p>PayPal</p>}
                     {paymentMethod === 'cod' && <p>Thanh toán khi nhận hàng</p>}
                   </div>
                 </div>
@@ -435,21 +488,25 @@ const Checkout = () => {
           <div className="chk-order-summary">
             <h3>Tóm tắt đơn hàng</h3>
             
-            <div className="chk-order-items">
-              {cartItems.map(item => (
-                <div key={item.id} className="chk-order-item">
-                  <img src={item.image} alt={item.name} />
-                  <div className="chk-item-details">
-                    <h4>{item.name}</h4>
-                    <p>Size: {item.size} | Màu: {item.color}</p>
-                    <p>Số lượng: {item.quantity}</p>
+            {loadingCart ? (
+              <div className="chk-order-items"><p>Đang tải giỏ hàng...</p></div>
+            ) : (
+              <div className="chk-order-items">
+                {cartItems.map(item => (
+                  <div key={item.id} className="chk-order-item">
+                    <img src={item.image} alt={item.name} />
+                    <div className="chk-item-details">
+                      <h4>{item.name}</h4>
+                      <p>Size: {item.size || '-' } | Màu: {item.color || '-'}</p>
+                      <p>Số lượng: {item.quantity}</p>
+                    </div>
+                    <div className="chk-item-price">
+                      {(item.price * item.quantity).toLocaleString()}đ
+                    </div>
                   </div>
-                  <div className="chk-item-price">
-                    {(item.price * item.quantity).toLocaleString()}đ
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
 
             <div className="chk-order-totals">
               <div className="chk-total-row">
@@ -459,10 +516,6 @@ const Checkout = () => {
               <div className="chk-total-row">
                 <span>Phí vận chuyển:</span>
                 <span>{shipping.toLocaleString()}đ</span>
-              </div>
-              <div className="chk-total-row">
-                <span>Thuế (10%):</span>
-                <span>{tax.toLocaleString()}đ</span>
               </div>
               <div className="chk-total-row chk-final-total">
                 <span>Tổng cộng:</span>

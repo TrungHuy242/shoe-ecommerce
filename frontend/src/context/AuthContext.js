@@ -7,7 +7,8 @@ export function AuthProvider({ children }) {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [userName, setUserName] = useState("");
   const [role, setRole] = useState(null);
-  const [loading, setLoading] = useState(true); // Add loading state
+  const [user, setUser] = useState(null);          // <— NEW
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const storedUser = localStorage.getItem("user");
@@ -16,23 +17,26 @@ export function AuthProvider({ children }) {
         const userData = JSON.parse(storedUser);
         setIsLoggedIn(true);
         setUserName(userData.name || "Người dùng");
-        setRole(userData.role || null);
+        setRole(userData.role ?? null);
+        setUser(userData);                         // <— NEW
       } catch (error) {
         console.error("Error parsing user data from localStorage:", error);
         localStorage.removeItem("user");
         setIsLoggedIn(false);
         setUserName("");
         setRole(null);
+        setUser(null);                             // <— NEW
       }
     }
-    setLoading(false); // Set loading to false after rehydration
+    setLoading(false);
   }, []);
 
   const login = (userData) => {
     localStorage.setItem("user", JSON.stringify(userData));
     setIsLoggedIn(true);
     setUserName(userData.name || "Người dùng");
-    setRole(userData.role);
+    setRole(userData.role ?? null);
+    setUser(userData);                             // <— NEW
   };
 
   const logout = () => {
@@ -40,20 +44,33 @@ export function AuthProvider({ children }) {
     setIsLoggedIn(false);
     setUserName("");
     setRole(null);
+    setUser(null);                                 // <— NEW
+  };
+
+  const updateUserInfo = (newInfo) => {            // <— NEW
+    setUser((prev) => {
+      const updated = { ...(prev || {}), ...newInfo };
+      localStorage.setItem("user", JSON.stringify(updated));
+      setUserName(updated.name || "Người dùng");
+      if (updated.role !== undefined) setRole(updated.role);
+      return updated;
+    });
   };
 
   const contextValue = {
     isLoggedIn,
     userName,
     role,
+    user,                                          // <— NEW
     login,
     logout,
-    loading, // Add loading to context
+    updateUserInfo,                                // <— NEW
+    loading,
   };
 
   return (
     <AuthContext.Provider value={contextValue}>
-      {!loading ? children : <div>Loading...</div>} {/* Conditionally render children */}
+      {!loading ? children : <div>Loading...</div>}
     </AuthContext.Provider>
   );
 }

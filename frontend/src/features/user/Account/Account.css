@@ -1,0 +1,234 @@
+.account-page {
+    min-height: 100vh;
+    background: linear-gradient(135deg, #f0f4ff 0%, #fffaf0 100%);
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    padding: 2rem 1rem;
+}
+
+.account-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    gap: 2rem;
+}
+
+/* Sidebar Navigation */
+.account-sidebar {
+    background: #ffffff;
+    border-radius: 1rem;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.08);
+    padding: 0;
+    height: fit-content;
+    overflow: hidden;
+}
+
+.sidebar-header {
+    background: linear-gradient(135deg, #ff7f50, #ff4500);
+    color: white;
+    padding: 2rem 1.5rem;
+    text-align: center;
+}
+
+.user-avatar {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    border: 4px solid rgba(255,255,255,0.3);
+    margin-bottom: 1rem;
+    object-fit: cover;
+}
+
+.user-name {
+    font-size: 1.3rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+}
+
+.user-email {
+    font-size: 0.9rem;
+    opacity: 0.9;
+}
+
+.sidebar-nav {
+    padding: 1rem 0;
+}
+
+.nav-item {
+    display: flex;
+    align-items: center;
+    padding: 1rem 1.5rem;
+    color: #374151;
+    text-decoration: none;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    border-left: 3px solid #ff4500;
+    background: #f8fafc;
+    color: #ff4500;
+}
+
+.nav-item svg {
+    margin-right: 0.75rem;
+    width: 20px;
+    height: 20px;
+}
+
+/* Main Content */
+.account-main {
+    background: #ffffff;
+    border-radius: 1rem;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.08);
+    overflow: hidden;
+}
+
+.content-header {
+    background: #f8fafc;
+    padding: 2rem;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.content-title {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #111827;
+    margin-bottom: 0.5rem;
+}
+
+.content-subtitle {
+    color: #6b7280;
+    font-size: 1rem;
+}
+
+.content-body {
+    padding: 2rem;
+}
+
+/* Profile Form */
+.profile-form {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 2rem;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+}
+
+.form-label {
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.form-input {
+    padding: 0.75rem;
+    border: 2px solid #e5e7eb;
+    border-radius: 0.5rem;
+    font-size: 1rem;
+    transition: all 0.3s ease;
+    outline: none;
+}
+
+.form-input:focus {
+    border-color: #ff4500;
+    box-shadow: 0 0 0 3px rgba(255, 69, 0, 0.1);
+}
+
+.form-input:disabled {
+    background-color: #f3f4f6;
+    cursor: not-allowed;
+}
+
+.form-textarea {
+    resize: vertical;
+    min-height: 100px;
+}
+
+.form-actions {
+    display: flex;
+    gap: 1rem;
+    margin-top: 2rem;
+    justify-content: flex-end;
+}
+
+.btn {
+    padding: 0.75rem 1.5rem;
+    border-radius: 0.5rem;
+    font-weight: 600;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border: none;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, #ff7f50, #ff4500);
+    color: white;
+}
+
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(255, 69, 0, 0.3);
+}
+
+.btn-secondary {
+    background: #f3f4f6;
+    color: #374151;
+    border: 1px solid #d1d5db;
+}
+
+.btn-secondary:hover {
+    background: #e5e7eb;
+}
+
+/* Message */
+.message {
+    padding: 1rem;
+    border-radius: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+    .account-container {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+    
+    .account-sidebar {
+        order: 2;
+    }
+    
+    .account-main {
+        order: 1;
+    }
+}
+
+@media (max-width: 768px) {
+    .account-page {
+        padding: 1rem;
+    }
+    
+    .profile-form {
+        grid-template-columns: 1fr;
+    }
+    
+    .form-actions {
+        flex-direction: column;
+    }
+    
+    .content-header {
+        padding: 1.5rem;
+    }
+    
+    .content-body {
+        padding: 1.5rem;
+    }
+}

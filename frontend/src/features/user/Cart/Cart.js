@@ -1,6 +1,7 @@
+// frontend/src/features/user/Cart/Cart.js
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import api from '../../../services/api'; // Đường dẫn tới file api.js
+import { Link, useNavigate } from 'react-router-dom';
+import api from '../../../services/api';
 import { FaTrash, FaMinus, FaPlus, FaShoppingBag, FaArrowLeft, FaTags } from 'react-icons/fa';
 import './Cart.css';
 
@@ -9,53 +10,95 @@ const Cart = () => {
   const [couponCode, setCouponCode] = useState('');
   const [appliedCoupon, setAppliedCoupon] = useState(null);
   const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
+  const [selectedIds, setSelectedIds] = useState(new Set());
+
+  const fetchCartData = async () => {
+    try {
+      setLoading(true);
+      // 1) Lấy danh sách cart-items của user (backend đã filter theo user)
+      const res = await api.get('cart-items/');
+      const raw = Array.isArray(res.data) ? res.data : (res.data.results || []);
+
+      if (raw.length === 0) {
+        setCartItems([]);
+        return;
+      }
+
+      // 2) Lấy chi tiết product cho từng cart-item
+      const productDetails = await Promise.all(
+        raw.map(ci => api.get(`products/${ci.product}/`).then(r => r.data).catch(() => null))
+      );
+
+      // đọc meta size/color từ localStorage
+      const metaRaw = localStorage.getItem('cart_item_meta');
+      const meta = metaRaw ? JSON.parse(metaRaw) : {};
+
+      // 3) Gộp dữ liệu để hiển thị
+      const merged = raw.map((ci, idx) => {
+        const p = productDetails[idx];
+        const m = meta[ci.id] || {};
+        return {
+          id: ci.id,                      // id cart-item (dùng update/xóa)
+          productId: ci.product,          // id sản phẩm
+          name: p?.name || 'Sản phẩm',
+          image: (p?.images && p.images[0]?.image) || p?.image || 'https://via.placeholder.com/300x300?text=Product',
+          price: Number(p?.price || 0),
+          originalPrice: p?.originalPrice ? Number(p.originalPrice) : 0,
+          quantity: ci.quantity || 1,
+          size: m.size || '',     // lấy từ meta
+          color: m.color || '',   // lấy từ meta
+        };
+      });
+
+      setCartItems(merged);
+      // mặc định: chọn tất cả khi vào trang
+      setSelectedIds(new Set(merged.map(i => i.id)));
+    } catch (err) {
+      console.error('Lỗi khi lấy dữ liệu giỏ hàng:', err?.response?.data || err.message);
+      if (err?.response?.status === 401) navigate('/login');
+      setCartItems([]);
+      setSelectedIds(new Set());
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchCartData = async () => {
-      try {
-        setLoading(true);
-        const response = await api.get('cart/'); // Gọi API để lấy danh sách giỏ hàng
-        setCartItems(response.data); // Giả định response.data là mảng các item
-      } catch (err) {
-        console.error('Lỗi khi lấy dữ liệu giỏ hàng:', err.response ? err.response.data : err.message);
-        setCartItems([]); // Đặt mảng rỗng nếu có lỗi
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchCartData();
   }, []);
 
-  const updateQuantity = (id, newQuantity) => {
+  const updateQuantity = async (cartItemId, newQuantity) => {
     if (newQuantity < 1) return;
-    
-    setCartItems(items => 
-      items.map(item => 
-        item.id === id ? { ...item, quantity: newQuantity } : item
-      )
-    );
+    try {
+      await api.patch(`cart-items/${cartItemId}/`, { quantity: newQuantity });
+      setCartItems(items =>
+        items.map(i => (i.id === cartItemId ? { ...i, quantity: newQuantity } : i))
+      );
+    } catch (e) {
+      console.error('Update quantity error:', e?.response?.data || e.message);
+    }
   };
 
-  const removeItem = (id) => {
-    setCartItems(items => items.filter(item => item.id !== id));
+  const removeItem = async (cartItemId) => {
+    try { await api.delete(`cart-items/${cartItemId}/`); } catch {}
+    setCartItems(items => items.filter(i => i.id !== cartItemId));
+    setSelectedIds(prev => { const n = new Set(prev); n.delete(cartItemId); return n; });
+    const metaRaw = localStorage.getItem('cart_item_meta');
+    if (metaRaw) {
+      const meta = JSON.parse(metaRaw);
+      delete meta[cartItemId];
+      localStorage.setItem('cart_item_meta', JSON.stringify(meta));
+    }
   };
 
   const applyCoupon = () => {
     setLoading(true);
-    
     setTimeout(() => {
       if (couponCode.toLowerCase() === 'welcome10') {
-        setAppliedCoupon({
-          code: 'WELCOME10',
-          discount: 0.1,
-          type: 'percentage'
-        });
+        setAppliedCoupon({ code: 'WELCOME10', discount: 0.1, type: 'percentage' });
       } else if (couponCode.toLowerCase() === 'save50k') {
-        setAppliedCoupon({
-          code: 'SAVE50K',
-          discount: 50000,
-          type: 'fixed'
-        });
+        setAppliedCoupon({ code: 'SAVE50K', discount: 50000, type: 'fixed' });
       } else {
         alert('Mã giảm giá không hợp lệ!');
       }
@@ -68,19 +111,28 @@ const Cart = () => {
     setCouponCode('');
   };
 
-  const subtotal = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-  const savings = cartItems.reduce((sum, item) => 
-    sum + ((item.originalPrice - item.price) * item.quantity), 0
-  );
-  
+  const allSelected = cartItems.length > 0 && selectedIds.size === cartItems.length;
+  const toggleSelectAll = () => {
+    if (allSelected) setSelectedIds(new Set());
+    else setSelectedIds(new Set(cartItems.map(i => i.id)));
+  };
+  const toggleSelectOne = (id) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  // Tổng tiền chỉ theo sản phẩm được chọn
+  const selectedItems = cartItems.filter(i => selectedIds.has(i.id));
+  const subtotal = selectedItems.reduce((sum, it) => sum + it.price * it.quantity, 0);
+  const savings = selectedItems.reduce((sum, it) => sum + Math.max((it.originalPrice - it.price), 0) * it.quantity, 0);
   let discount = 0;
   if (appliedCoupon) {
-    discount = appliedCoupon.type === 'percentage' 
-      ? subtotal * appliedCoupon.discount
-      : appliedCoupon.discount;
+    discount = appliedCoupon.type === 'percentage' ? subtotal * appliedCoupon.discount : appliedCoupon.discount;
   }
-  
-  const shipping = subtotal >= 1000000 ? 0 : 30000;
+  const shipping = subtotal >= 1000000 ? 0 : (selectedItems.length > 0 ? 30000 : 0);
   const total = subtotal - discount + shipping;
 
   if (cartItems.length === 0) {
@@ -111,25 +163,41 @@ const Cart = () => {
         <div className="cart-content">
           <div className="cart-items-section">
             <div className="cart-items">
+              <div className="cart-bulk-bar" style={{ display:'flex', alignItems:'center', gap:'0.75rem', marginBottom:'0.75rem' }}>
+                <input
+                  type="checkbox"
+                  checked={allSelected}
+                  onChange={toggleSelectAll}
+                />
+                <span>Chọn tất cả ({selectedIds.size}/{cartItems.length})</span>
+              </div>
               {cartItems.map(item => (
                 <div key={item.id} className="cart-item">
+                  <div className="cart-item-checkbox" style={{ display:'flex', alignItems:'center' }}>
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.has(item.id)}
+                      onChange={() => toggleSelectOne(item.id)}
+                    />
+                  </div>
+
                   <div className="cart-item-image">
                     <img src={item.image} alt={item.name} />
                   </div>
-                  
+
                   <div className="cart-item-details">
                     <h3>{item.name}</h3>
                     <div className="cart-item-attributes">
-                      <span>Size: {item.size}</span>
-                      <span>Màu: {item.color}</span>
+                      {item.size && <span>Size: {item.size}</span>}
+                      {item.color && <span>Màu: {item.color}</span>}
                     </div>
                     <div className="cart-item-price">
                       <span className="cart-current-price">
-                        {item.price.toLocaleString()}đ
+                        {item.price.toLocaleString('vi-VN')}đ
                       </span>
                       {item.originalPrice > item.price && (
                         <span className="cart-original-price">
-                          {item.originalPrice.toLocaleString()}đ
+                          {item.originalPrice.toLocaleString('vi-VN')}đ
                         </span>
                       )}
                     </div>
@@ -137,7 +205,7 @@ const Cart = () => {
 
                   <div className="cart-item-actions">
                     <div className="cart-quantity-controls">
-                      <button 
+                      <button
                         onClick={() => updateQuantity(item.id, item.quantity - 1)}
                         className="cart-qty-btn"
                         disabled={item.quantity <= 1}
@@ -145,15 +213,15 @@ const Cart = () => {
                         <FaMinus />
                       </button>
                       <span className="cart-quantity">{item.quantity}</span>
-                      <button 
+                      <button
                         onClick={() => updateQuantity(item.id, item.quantity + 1)}
                         className="cart-qty-btn"
                       >
                         <FaPlus />
                       </button>
                     </div>
-                    
-                    <button 
+
+                    <button
                       onClick={() => removeItem(item.id)}
                       className="cart-remove-btn"
                       title="Xóa sản phẩm"
@@ -163,7 +231,7 @@ const Cart = () => {
                   </div>
 
                   <div className="cart-item-total">
-                    {(item.price * item.quantity).toLocaleString()}đ
+                    {(item.price * item.quantity).toLocaleString('vi-VN')}đ
                   </div>
                 </div>
               ))}
@@ -174,14 +242,14 @@ const Cart = () => {
                 <FaTags className="cart-coupon-icon" />
                 <h3>Mã giảm giá</h3>
               </div>
-              
+
               {appliedCoupon ? (
                 <div className="cart-applied-coupon">
                   <span className="cart-coupon-code">{appliedCoupon.code}</span>
                   <span className="cart-coupon-discount">
-                    -{appliedCoupon.type === 'percentage' 
-                      ? `${(appliedCoupon.discount * 100)}%` 
-                      : `${appliedCoupon.discount.toLocaleString()}đ`
+                    -{appliedCoupon.type === 'percentage'
+                      ? `${(appliedCoupon.discount * 100)}%`
+                      : `${appliedCoupon.discount.toLocaleString('vi-VN')}đ`
                     }
                   </span>
                   <button onClick={removeCoupon} className="cart-remove-coupon-btn">
@@ -196,7 +264,7 @@ const Cart = () => {
                     onChange={(e) => setCouponCode(e.target.value)}
                     placeholder="Nhập mã giảm giá"
                   />
-                  <button 
+                  <button
                     onClick={applyCoupon}
                     disabled={!couponCode.trim() || loading}
                     className="cart-apply-coupon-btn"
@@ -210,55 +278,44 @@ const Cart = () => {
 
           <div className="cart-order-summary">
             <h3>Tóm tắt đơn hàng</h3>
-            
             <div className="cart-summary-details">
               <div className="cart-summary-row">
                 <span>Tạm tính:</span>
-                <span>{subtotal.toLocaleString()}đ</span>
+                <span>{subtotal.toLocaleString('vi-VN')}đ</span>
               </div>
-              
               {savings > 0 && (
                 <div className="cart-summary-row cart-savings">
                   <span>Tiết kiệm:</span>
-                  <span>-{savings.toLocaleString()}đ</span>
+                  <span>-{savings.toLocaleString('vi-VN')}đ</span>
                 </div>
               )}
-              
               {discount > 0 && (
                 <div className="cart-summary-row cart-discount">
                   <span>Giảm giá ({appliedCoupon.code}):</span>
-                  <span>-{discount.toLocaleString()}đ</span>
+                  <span>-{discount.toLocaleString('vi-VN')}đ</span>
                 </div>
               )}
-              
               <div className="cart-summary-row">
                 <span>Phí vận chuyển:</span>
-                <span>
-                  {shipping === 0 ? (
-                    <span className="cart-free-shipping">Miễn phí</span>
-                  ) : (
-                    `${shipping.toLocaleString()}đ`
-                  )}
-                </span>
+                <span>{shipping === 0 ? <span className="cart-free-shipping">Miễn phí</span> : `${shipping.toLocaleString('vi-VN')}đ`}</span>
               </div>
-              
               <div className="cart-summary-row cart-total">
                 <span>Tổng cộng:</span>
-                <span>{total.toLocaleString()}đ</span>
+                <span>{total.toLocaleString('vi-VN')}đ</span>
               </div>
             </div>
 
             {shipping > 0 && (
               <div className="cart-shipping-notice">
                 <p>
-                  Mua thêm {(1000000 - subtotal).toLocaleString()}đ để được 
+                  Mua thêm {(1000000 - subtotal).toLocaleString('vi-VN')}đ để được
                   <strong> miễn phí vận chuyển</strong>!
                 </p>
               </div>
             )}
 
             <div className="cart-checkout-actions">
-              <Link to="/checkout" className="cart-checkout-btn">
+              <Link to="/checkout" state={{ items: selectedItems}} className="cart-checkout-btn">
                 Thanh toán
               </Link>
               <Link to="/products" className="cart-continue-shopping">

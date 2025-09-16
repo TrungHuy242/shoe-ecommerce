@@ -9,6 +9,7 @@ import ProductRecommendation from './features/user/ProductRecommendation/Product
 import Cart from './features/user/Cart/Cart';
 import Wishlist from './features/user/Wishlist/Wishlist';
 import OrderHistory from './features/user/OrderHistory/OrderHistory';
+import OrderDetail from './features/user/OrderDetail/OrderDetail';
 import Dashboard from './features/admin/Dashboard/Dashboard';
 import ManageProducts from './features/admin/ManageProducts/ManageProducts';
 import AddProduct from './features/admin/ManageProducts/AddProduct/AddProduct';
@@ -21,6 +22,7 @@ import ManageSizes from './features/admin/ManageProducts/ManageSizes/ManageSizes
 import ManageColors from './features/admin/ManageProducts/ManageColors/ManageColors';
 import ChatbotDashboard from './features/admin/ChatbotDashboard/ChatbotDashboard';
 import Checkout from './features/user/Checkout/Checkout';
+import OrderSuccess from './features/user/OrderSuccess/OrderSuccess';
 import Login from './features/auth/Login';
 import Register from './features/auth/Register';
 import Chatbot from './components/Chatbot/Chatbot';
@@ -60,8 +62,10 @@ function AppRoutes() {
         <Route path="/product-recommendation" element={<ProductRecommendation />} />
         <Route path="/cart" element={<Cart />} />
         <Route path="/checkout" element={isLoggedIn ? <Checkout /> : <Navigate to="/login" />} />
+        <Route path="/order-success" element={<OrderSuccess />} />
         <Route path="/wishlist" element={<Wishlist />} />
         <Route path="/orders" element={isLoggedIn ? <OrderHistory /> : <Navigate to="/login" />} />
+        <Route path="/order/:id" element={isLoggedIn ? <OrderDetail /> : <Navigate to="/login" />} />
         <Route path="/account" element={isLoggedIn ? <Account /> : <Navigate to="/login" />} />
         <Route path="/men" element={<Men />} />
         <Route path="/women" element={<Women />} />

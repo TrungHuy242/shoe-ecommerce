@@ -18,6 +18,8 @@ api.interceptors.request.use(
       "genders/",
       "brands/",
       "products/",
+      "sizes/",
+      "colors/",
     ];
 
     // Nếu url không thuộc danh sách công khai => thêm token

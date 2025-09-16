@@ -121,26 +121,6 @@
   font-size: 1.1rem;
   margin: 0;
 }
-
-.wl-share-btn {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  background: #f7fafc;
-  color: #4a5568;
-  border: 1px solid #e2e8f0;
-  padding: 0.75rem 1.5rem;
-  border-radius: 8px;
-  cursor: pointer;
-  font-weight: 500;
-  transition: all 0.2s ease;
-}
-
-.wl-share-btn:hover {
-  background: #edf2f7;
-  border-color: #cbd5e0;
-}
-
 /* Controls */
 .wl-wishlist-controls {
   display: flex;
@@ -198,24 +178,6 @@
 
 .wl-sort-select:focus {
   border-color: #667eea;
-}
-
-.wl-bulk-action-btn {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  background: #667eea;
-  color: white;
-  border: none;
-  padding: 0.75rem 1.5rem;
-  border-radius: 8px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.wl-bulk-action-btn:hover {
-  background: #5a67d8;
 }
 
 /* Bulk Actions */
@@ -324,19 +286,6 @@
   transform: scale(1.05);
 }
 
-.wl-discount-badge {
-  position: absolute;
-  top: 1rem;
-  right: 1rem;
-  background: #e53e3e;
-  color: white;
-  padding: 0.5rem 0.75rem;
-  border-radius: 20px;
-  font-weight: 600;
-  font-size: 0.85rem;
-  z-index: 2;
-}
-
 .wl-out-of-stock-overlay {
   position: absolute;
   inset: 0;
@@ -358,15 +307,6 @@
 /* Item Info */
 .wl-item-info {
   padding: 1.5rem;
-}
-
-.wl-item-category {
-  color: #667eea;
-  font-size: 0.8rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin-bottom: 0.5rem;
 }
 
 .wl-item-name {
@@ -425,43 +365,10 @@
   color: #ff6b35;
 }
 
-.wl-original-price {
-  font-size: 1rem;
-  color: #a0aec0;
-  text-decoration: line-through;
-}
-
 /* Item Actions */
 .wl-item-actions {
   display: flex;
   gap: 0.75rem;
-}
-
-.wl-add-to-cart-btn {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  background: linear-gradient(135deg, #ff6b35, #f7931e);
-  color: white;
-  border: none;
-  padding: 0.75rem 1rem;
-  border-radius: 8px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.wl-add-to-cart-btn:hover:not(.wl-disabled) {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 15px rgba(255, 107, 53, 0.3);
-}
-
-.wl-add-to-cart-btn.wl-disabled {
-  background: #e2e8f0;
-  color: #a0aec0;
-  cursor: not-allowed;
 }
 
 .wl-remove-btn {

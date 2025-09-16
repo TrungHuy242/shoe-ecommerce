@@ -1,7 +1,8 @@
+// frontend/src/features/user/Wishlist/Wishlist.js
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import api from '../../../services/api';
-import { FaHeart, FaShoppingCart, FaStar, FaTrash, FaShare, FaSearch } from 'react-icons/fa';
+import { FaHeart, FaStar, FaTrash,FaSearch } from 'react-icons/fa';
 import './Wishlist.css';
 
 const Wishlist = () => {
@@ -10,67 +11,182 @@ const Wishlist = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState('newest');
   const [selectedItems, setSelectedItems] = useState(new Set());
+  const navigate = useNavigate();
 
   useEffect(() => {
     const fetchWishlistData = async () => {
       try {
         setLoading(true);
-        const response = await api.get('wishlist/'); // Gọi API để lấy danh sách yêu thích
-        setWishlistItems(response.data); // Giả định response.data là mảng các item
+
+        // nếu chưa có token => yêu cầu đăng nhập
+        const token = localStorage.getItem('access_token');
+        if (!token) {
+          navigate('/login');
+          return;
+        }
+
+        // 1) Lấy danh sách wishlist (id wishlist + product id)
+        const wlRes = await api.get('wishlists/');
+        const rawList = Array.isArray(wlRes.data) ? wlRes.data : (wlRes.data.results || []);
+        if (rawList.length === 0) {
+          setWishlistItems([]);
+          return;
+        }
+
+        // 2) Lấy chi tiết product cho từng wishlist item
+        const productIds = rawList.map(x => x.product);
+        const productDetails = await Promise.all(
+          productIds.map(id => api.get(`products/${id}/`).then(r => r.data).catch(() => null))
+        );
+
+        // 3) Gộp dữ liệu wishlist + product
+        const merged = rawList.map((wl, idx) => {
+          const p = productDetails[idx];
+          return {
+            id: wl.id,                    // id của wishlist item (dùng để xóa)
+            productId: wl.product,        // id sản phẩm
+            name: p?.name || 'Sản phẩm',
+            image: (p?.images && p.images[0]?.image) || p?.image || 'https://via.placeholder.com/300x300?text=Product',
+            price: Number(p?.price || 0),
+            originalPrice: p?.originalPrice ? Number(p.originalPrice) : 0,
+            rating: p?.rating || 0,
+            reviews: p?.reviews || 0,
+            inStock: (p?.stock_quantity || 0) > 0,
+            category: String(p?.category || ''),   // id (chỉ để lọc text nếu cần)
+            addedDate: wl.added_at || wl.created_at || new Date().toISOString(),
+          };
+        });
+
+        setWishlistItems(merged);
       } catch (err) {
-        console.error('Lỗi khi lấy dữ liệu wishlist:', err.response ? err.response.data : err.message);
-        setWishlistItems([]); // Đặt mảng rỗng nếu có lỗi
+        console.error('Lỗi khi lấy dữ liệu wishlist:', err?.response?.data || err.message);
+        // Nếu 401 => bắt đăng nhập
+        if (err?.response?.status === 401) navigate('/login');
+        setWishlistItems([]);
       } finally {
         setLoading(false);
       }
     };
-    fetchWishlistData();
-  }, []);
 
-  const removeFromWishlist = (id) => {
-    setWishlistItems(items => items.filter(item => item.id !== id));
+    fetchWishlistData();
+  }, [navigate]);
+
+  const removeFromWishlist = async (wishlistId) => {
+    try {
+      await api.delete(`wishlists/${wishlistId}/`);
+    } catch (e) {
+      // vẫn xóa ở UI để mượt, log lỗi nếu cần
+      console.warn('Xóa wishlist lỗi (UI vẫn cập nhật):', e?.response?.data || e.message);
+    }
+    setWishlistItems(items => items.filter(item => item.id !== wishlistId));
     setSelectedItems(prev => {
-      const newSet = new Set(prev);
-      newSet.delete(id);
-      return newSet;
+      const ns = new Set(prev);
+      ns.delete(wishlistId);
+      return ns;
     });
   };
 
-  const addToCart = (item) => {
-    console.log('Added to cart:', item);
-    alert(`Đã thêm "${item.name}" vào giỏ hàng!`);
+  // Thêm các helper dưới phần useNavigate()
+  const getCurrentUserId = () => {
+    try {
+      const token = localStorage.getItem('access_token');
+      if (!token) return null;
+      const payload = token.split('.')[1];
+      const decoded = JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')));
+      return decoded.user_id || decoded.userId || null;
+    } catch {
+      return null;
+    }
   };
 
-  const addAllToCart = () => {
-    const inStockItems = wishlistItems.filter(item => item.inStock);
-    if (inStockItems.length === 0) {
-      alert('Không có sản phẩm nào còn hàng để thêm vào giỏ!');
-      return;
-    }
-    
-    console.log('Added all to cart:', inStockItems);
-    alert(`Đã thêm ${inStockItems.length} sản phẩm vào giỏ hàng!`);
+  const getOrCreateCartId = async () => {
+    // Lấy cart hiện có
+    const cartsRes = await api.get('carts/');
+    const carts = Array.isArray(cartsRes.data) ? cartsRes.data : (cartsRes.data.results || []);
+    if (carts.length > 0) return carts[0].id;
+
+    // Chưa có -> tạo mới
+    const userId = getCurrentUserId();
+    const created = await api.post('carts/', { user: userId });
+    return created.data.id;
   };
 
-  const removeSelected = () => {
-    if (selectedItems.size === 0) {
-      alert('Vui lòng chọn sản phẩm để xóa!');
-      return;
+  const isProductInCart = async (productId) => {
+    // Lấy các cart-item của user
+    const itemsRes = await api.get('cart-items/');
+    const items = Array.isArray(itemsRes.data) ? itemsRes.data : (itemsRes.data.results || []);
+    return items.some(ci => ci.product === productId);
+  };
+
+  // Thay thế hàm addToCart cũ
+  const addToCart = async (item) => {
+    try {
+      const userId = getCurrentUserId();
+      if (!userId) {
+        navigate('/login');
+        return;
+      }
+
+      if (await isProductInCart(item.productId)) {
+        alert('Sản phẩm này đã có trong giỏ hàng.');
+        return;
+      }
+
+      const cartId = await getOrCreateCartId();
+      await api.post('cart-items/', {
+        cart: cartId,
+        product: item.productId,
+        quantity: 1,
+      });
+
+      alert(`Đã thêm "${item.name}" vào giỏ hàng!`);
+    } catch (e) {
+      console.error('Add to cart error:', e?.response?.data || e.message);
+      if (e?.response?.status === 401) navigate('/login');
+      else alert('Không thể thêm vào giỏ hàng. Vui lòng thử lại.');
     }
-    
-    setWishlistItems(items => items.filter(item => !selectedItems.has(item.id)));
-    setSelectedItems(new Set());
+  };
+
+  // Cập nhật addAllToCart để dùng logic trên
+  const addAllToCart = async () => {
+    try {
+      const userId = getCurrentUserId();
+      if (!userId) {
+        navigate('/login');
+        return;
+      }
+
+      const cartId = await getOrCreateCartId();
+      const itemsRes = await api.get('cart-items/');
+      const items = Array.isArray(itemsRes.data) ? itemsRes.data : (itemsRes.data.results || []);
+      const inCartSet = new Set(items.map(ci => ci.product));
+
+      const inStockItems = wishlistItems.filter(i => i.inStock);
+      const toAdd = inStockItems.filter(i => !inCartSet.has(i.productId));
+
+      if (toAdd.length === 0) {
+        alert('Tất cả sản phẩm còn hàng đã có trong giỏ.');
+        return;
+      }
+
+      for (const it of toAdd) {
+        await api.post('cart-items/', { cart: cartId, product: it.productId, quantity: 1 });
+      }
+
+      alert(`Đã thêm ${toAdd.length} sản phẩm vào giỏ hàng!`);
+    } catch (e) {
+      console.error('Add all to cart error:', e?.response?.data || e.message);
+      if (e?.response?.status === 401) navigate('/login');
+      else alert('Không thể thêm tất cả vào giỏ. Vui lòng thử lại.');
+    }
   };
 
   const toggleSelectItem = (id) => {
     setSelectedItems(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(id)) {
-        newSet.delete(id);
-      } else {
-        newSet.add(id);
-      }
-      return newSet;
+      const ns = new Set(prev);
+      if (ns.has(id)) ns.delete(id);
+      else ns.add(id);
+      return ns;
     });
   };
 
@@ -82,35 +198,18 @@ const Wishlist = () => {
     }
   };
 
-  const shareWishlist = () => {
-    if (navigator.share) {
-      navigator.share({
-        title: 'Danh sách yêu thích của tôi',
-        text: 'Xem những sản phẩm tôi yêu thích tại FootFashion',
-        url: window.location.href,
-      });
-    } else {
-      navigator.clipboard.writeText(window.location.href);
-      alert('Đã sao chép link vào clipboard!');
-    }
-  };
-
   const filteredItems = wishlistItems
-    .filter(item => 
-      item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.category.toLowerCase().includes(searchTerm.toLowerCase())
+    .filter(item =>
+      item.name.toLowerCase().includes(searchTerm.toLowerCase())
+      // Có thể thêm điều kiện khác nếu muốn
     )
     .sort((a, b) => {
       switch (sortBy) {
-        case 'price-asc':
-          return a.price - b.price;
-        case 'price-desc':
-          return b.price - a.price;
-        case 'name':
-          return a.name.localeCompare(b.name);
+        case 'price-asc': return a.price - b.price;
+        case 'price-desc': return b.price - a.price;
+        case 'name': return a.name.localeCompare(b.name);
         case 'newest':
-        default:
-          return new Date(b.addedDate) - new Date(a.addedDate);
+        default: return new Date(b.addedDate) - new Date(a.addedDate);
       }
     });
 
@@ -166,9 +265,6 @@ const Wishlist = () => {
               </h1>
               <p>{wishlistItems.length} sản phẩm</p>
             </div>
-            <button className="wl-share-btn" onClick={shareWishlist}>
-              <FaShare /> Chia sẻ
-            </button>
           </div>
 
           <div className="wl-wishlist-controls">
@@ -193,14 +289,10 @@ const Wishlist = () => {
                 <option value="price-desc">Giá giảm dần</option>
                 <option value="name">Tên A-Z</option>
               </select>
-
-              <button className="wl-bulk-action-btn" onClick={addAllToCart}>
-                <FaShoppingCart /> Thêm tất cả vào giỏ
-              </button>
             </div>
           </div>
 
-          {wishlistItems.length > 0 && (
+          {filteredItems.length > 0 && (
             <div className="wl-bulk-actions">
               <label className="wl-select-all">
                 <input
@@ -212,7 +304,10 @@ const Wishlist = () => {
               </label>
 
               {selectedItems.size > 0 && (
-                <button className="wl-remove-selected-btn" onClick={removeSelected}>
+                <button className="wl-remove-selected-btn" onClick={() => {
+                  // xóa hàng loạt trên UI (có thể lặp delete API nếu muốn)
+                  filteredItems.forEach(it => { if (selectedItems.has(it.id)) removeFromWishlist(it.id); });
+                }}>
                   <FaTrash /> Xóa đã chọn
                 </button>
               )}
@@ -236,12 +331,9 @@ const Wishlist = () => {
                   />
                 </div>
 
-                <Link to={`/product/${item.id}`} className="wl-item-link">
+                <Link to={`/product/${item.productId}`} className="wl-item-link">
                   <div className="wl-item-image">
                     <img src={item.image} alt={item.name} />
-                    {item.discount > 0 && (
-                      <div className="wl-discount-badge">-{item.discount}%</div>
-                    )}
                     {!item.inStock && (
                       <div className="wl-out-of-stock-overlay">
                         <span>Hết hàng</span>
@@ -251,11 +343,10 @@ const Wishlist = () => {
                 </Link>
 
                 <div className="wl-item-info">
-                  <div className="wl-item-category">{item.category}</div>
                   <h3 className="wl-item-name">
-                    <Link to={`/product/${item.id}`}>{item.name}</Link>
+                    <Link to={`/product/${item.productId}`}>{item.name}</Link>
                   </h3>
-                  
+
                   <div className="wl-item-rating">
                     <div className="wl-stars">
                       {renderStars(item.rating)}
@@ -267,24 +358,11 @@ const Wishlist = () => {
 
                   <div className="wl-item-price">
                     <span className="wl-current-price">
-                      {item.price.toLocaleString()}đ
+                      {item.price.toLocaleString('vi-VN')}đ
                     </span>
-                    {item.originalPrice > item.price && (
-                      <span className="wl-original-price">
-                        {item.originalPrice.toLocaleString()}đ
-                      </span>
-                    )}
                   </div>
 
                   <div className="wl-item-actions">
-                    <button
-                      className={`wl-add-to-cart-btn ${!item.inStock ? 'wl-disabled' : ''}`}
-                      onClick={() => item.inStock && addToCart(item)}
-                      disabled={!item.inStock}
-                    >
-                      <FaShoppingCart />
-                      {item.inStock ? 'Thêm vào giỏ' : 'Hết hàng'}
-                    </button>
                     <button
                       className="wl-remove-btn"
                       onClick={() => removeFromWishlist(item.id)}
@@ -311,12 +389,6 @@ const Wishlist = () => {
                   {filteredItems.filter(item => item.inStock).length}
                 </span>
                 <span className="wl-stat-label">Còn hàng</span>
-              </div>
-              <div className="wl-stat">
-                <span className="wl-stat-number">
-                  {filteredItems.reduce((sum, item) => sum + (item.originalPrice - item.price), 0).toLocaleString()}đ
-                </span>
-                <span className="wl-stat-label">Tiết kiệm</span>
               </div>
             </div>
           </div>
