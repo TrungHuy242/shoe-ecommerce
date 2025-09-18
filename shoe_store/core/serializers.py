@@ -117,6 +117,10 @@ class ChatBotConversationSerializer(serializers.ModelSerializer):
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     def validate(self, attrs):
         data = super().validate(attrs)
-        data['role'] = self.user.customer.role if hasattr(self.user, 'customer') else 0
+        # Use role directly from custom User model; fallback to 0 if missing
+        try:
+            data['role'] = getattr(self.user, 'role', 0) or 0
+        except Exception:
+            data['role'] = 0
         data['user_id'] = self.user.id
         return data

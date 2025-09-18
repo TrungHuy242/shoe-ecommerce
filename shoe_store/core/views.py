@@ -1,5 +1,5 @@
 # core/views.py
-from ast import Or
+import logging
 from rest_framework import viewsets, filters
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.permissions import AllowAny, IsAuthenticatedOrReadOnly
@@ -16,6 +16,8 @@ from rest_framework.decorators import action ,api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from django.db import transaction
 from django.db.models import F
+
+logger = logging.getLogger(__name__)
 
 
 # Create your views here.
@@ -45,7 +47,14 @@ class ProductViewSet(viewsets.ModelViewSet):
             queryset = queryset.order_by('-price')
         elif sort == 'newest':
             queryset = queryset.order_by('-id')  # Sắp xếp theo ID giảm dần (mới nhất)
-        print(f"Filtered queryset: {list(queryset.values('id', 'name', 'category__name', 'gender__name', 'brand__name'))}")
+        # Log lightweight debug info without materializing the entire queryset in production
+        if settings.DEBUG:
+            try:
+                sample = list(queryset.values('id', 'name')[:5])
+                logger.debug("Filtered Product queryset sample: %s", sample)
+            except Exception:
+                # Guard against unexpected evaluation issues
+                logger.debug("Filtered Product queryset prepared")
         return queryset
 
     def perform_create(self, serializer):
@@ -66,13 +75,37 @@ class ProductViewSet(viewsets.ModelViewSet):
                 Image.objects.create(product=product, image=image)
 
             # Handle images to delete
-            images_to_delete = request.data.getlist('images_to_delete')
-            for image_id in images_to_delete:
-                try:
-                    image = Image.objects.get(pk=image_id, product=product)
-                    image.delete()
-                except Image.DoesNotExist:
-                    pass  # Handle the case where the image doesn't exist
+            images_to_delete = []
+            try:
+                # Support both multipart (QueryDict) and JSON bodies
+                if hasattr(request.data, 'getlist'):
+                    images_to_delete = request.data.getlist('images_to_delete') or []
+                else:
+                    raw = request.data.get('images_to_delete', [])
+                    images_to_delete = raw
+                # Normalize to list of integers
+                if isinstance(images_to_delete, str):
+                    import json as _json
+                    try:
+                        images_to_delete = _json.loads(images_to_delete)
+                    except Exception:
+                        images_to_delete = [images_to_delete]
+                if not isinstance(images_to_delete, (list, tuple)):
+                    images_to_delete = [images_to_delete]
+                normalized_ids = []
+                for item in images_to_delete:
+                    try:
+                        normalized_ids.append(int(item))
+                    except Exception:
+                        continue
+                for image_id in normalized_ids:
+                    try:
+                        image = Image.objects.get(pk=image_id, product=product)
+                        image.delete()
+                    except Image.DoesNotExist:
+                        continue
+            except Exception as e:
+                logger.debug("images_to_delete parsing error: %s", e)
 
             return Response(serializer.data)
         return Response(serializer.errors, status=400)
