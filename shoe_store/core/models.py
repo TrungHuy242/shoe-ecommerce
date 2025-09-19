@@ -118,6 +118,17 @@ class Order(models.Model):
         default='pending'
     )
     payment_method = models.CharField(max_length=50, blank=True, null=True, default='')
+    payment_status = models.CharField(
+        max_length=20,
+        choices=[
+            ('pending', 'Pending'),
+            ('processing', 'Processing'),
+            ('paid', 'Paid'),
+            ('refunded', 'Refunded'),
+            ('failed', 'Failed')
+        ],
+        default='pending'
+    )
     created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, blank=True, null=True)
 

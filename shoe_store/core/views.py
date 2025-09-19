@@ -7,6 +7,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework_simplejwt.views import TokenObtainPairView
 from django.conf import settings
+from urllib3 import response
 from .models import Product, Category, Brand, Image, Banner, Promotion, ProductPromotion, User, Cart, CartItem, Order, OrderDetail, Payment, Wishlist, Notification, FAQ, ChatBotConversation, Size, Color, Gender
 from .serializers import ProductSerializer, CategorySerializer, BrandSerializer, ImageSerializer, BannerSerializer, PromotionSerializer, ProductPromotionSerializer, UserSerializer, CartSerializer, CartItemSerializer, OrderSerializer, OrderDetailSerializer, PaymentSerializer, WishlistSerializer, NotificationSerializer, FAQSerializer, ChatBotConversationSerializer, CustomTokenObtainPairSerializer, SizeSerializer, ColorSerializer, GenderSerializer
 import google.generativeai as genai
@@ -16,14 +17,22 @@ from rest_framework.decorators import action ,api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from django.db import transaction
 from django.db.models import F
+from django.views.decorators.csrf import csrf_exempt
+from django.utils import timezone
+import re
+from rest_framework import permissions, status, viewsets
+from rest_framework.decorators import action
+from rest_framework.response import Response
+from rest_framework.serializers import Serializer, IntegerField, CharField
+from core.models import Product, OrderDetail
 
 
 # Create your views here.
 # Create your views here.
 class ProductViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticatedOrReadOnly]
     queryset = Product.objects.all()
     serializer_class = ProductSerializer
-    permission_classes = [IsAdminOrReadOnly]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = {
         'category__name': ['exact'],
@@ -86,50 +95,50 @@ class ProductViewSet(viewsets.ModelViewSet):
 class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
     serializer_class = UserSerializer
-    permission_classes = [IsAuthenticatedOrReadOnly]
+    permission_classes = [IsAuthenticated]
 
     def perform_create(self, serializer):
         serializer.save()
 
 class CategoryViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticatedOrReadOnly]
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
-    permission_classes = [AllowAny]  # Đổi thành AllowAny nếu muốn công khai
 
 class BrandViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticatedOrReadOnly]
     queryset = Brand.objects.all()
     serializer_class = BrandSerializer
-    permission_classes = [AllowAny]  # Đổi thành AllowAny nếu muốn công khai
 
 class SizeViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticatedOrReadOnly]
     queryset = Size.objects.all()
     serializer_class = SizeSerializer
-    permission_classes = [IsAdminOrReadOnly]
 
 class ColorViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticatedOrReadOnly]
     queryset = Color.objects.all()
     serializer_class = ColorSerializer
-    permission_classes = [IsAdminOrReadOnly]
 
-class GenderViewSet(viewsets.ReadOnlyModelViewSet):
+class GenderViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticatedOrReadOnly]
     queryset = Gender.objects.all()
     serializer_class = GenderSerializer
-    permission_classes = [AllowAny]  # Thay IsAuthenticatedOrReadOnly bằng AllowAny
 
 class ImageViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticatedOrReadOnly]
     queryset = Image.objects.all()
     serializer_class = ImageSerializer
-    permission_classes = [IsAuthenticatedOrReadOnly]
 
 class BannerViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticatedOrReadOnly]
     queryset = Banner.objects.all()
     serializer_class = BannerSerializer
-    permission_classes = [IsAuthenticatedOrReadOnly]
 
 class PromotionViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticatedOrReadOnly]
     queryset = Promotion.objects.all()
     serializer_class = PromotionSerializer
-    permission_classes = [IsAuthenticatedOrReadOnly]
 
 class ProductPromotionViewSet(viewsets.ModelViewSet):
     queryset = ProductPromotion.objects.all()
@@ -137,25 +146,25 @@ class ProductPromotionViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticatedOrReadOnly]
 
 class CartViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated]
     queryset = Cart.objects.all()
     serializer_class = CartSerializer
-    permission_classes = [IsAuthenticatedOrReadOnly]
 
     def get_queryset(self):
         return Cart.objects.filter(user=self.request.user)
 
 class CartItemViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticatedOrReadOnly]
     queryset = CartItem.objects.all()
     serializer_class = CartItemSerializer
-    permission_classes = [IsAuthenticatedOrReadOnly]
 
     def get_queryset(self):
         return CartItem.objects.filter(cart__user=self.request.user)
 
 class OrderViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated]
     queryset = Order.objects.all()
     serializer_class = OrderSerializer
-    permission_classes = [IsCustomerOrAdmin]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
     filterset_fields = ['user', 'status', 'payment_method']  # Thay 'customer' bằng 'user'
     search_fields = ['id']
@@ -187,11 +196,42 @@ class OrderViewSet(viewsets.ModelViewSet):
                 return Response({'message': 'Đã hủy đơn và hoàn kho thành công'})
         except Exception as e:
             return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+    
+    @action(detail=True, methods=['get'], permission_classes=[IsAuthenticated])
+    def confirm_received(self, request, pk=None):
+        try:
+            with transaction.atomic():
+                order = self.get_object()
+                if not (request.user.is_superuser or order.user_id == request.user.id):
+                    return Response({"detail": "Bạn không có quyền xác nhận đơn hàng"}, status=status.HTTP_403_FORBIDDEN)
+                if order.status == 'cancelled':
+                    return Response({"detail": "Đơn hàng đã bị hủy"}, status=status.HTTP_400_BAD_REQUEST)
+                
+                order.status = 'delivered'
+                order.save(update_fields=['status'])
+                
+                if(order.payment_method or '').lower() == 'cod':
+                    latest = Payment.objects.filter(order=order).order_by('-payment_date').first()
+                    if latest:
+                        if latest.status == 'paid':
+                            latest.status = 'paid'
+                            latest.save(update_fields=['status'])
+                    else:
+                        Payment.objects.create(
+                            order=order,
+                            transaction_id = f"COD-{order.id}-{int(timezone.now().timestamp())}",
+                            status = 'paid',
+                            gateway_response = "COD confirmed by user"
+                        )
+            return Response({'message': 'Xác nhận đã nhận hàng thành công','status': 'delivered'})
+        except Exception as e:
+            return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+                
 
 class OrderDetailViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticatedOrReadOnly]
     queryset = OrderDetail.objects.all()
     serializer_class = OrderDetailSerializer
-    permission_classes = [IsAuthenticatedOrReadOnly]
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['order']
 
@@ -225,35 +265,37 @@ class OrderDetailViewSet(viewsets.ModelViewSet):
             return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 class PaymentViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated]
     queryset = Payment.objects.all()
     serializer_class = PaymentSerializer
-    permission_classes = [IsAuthenticatedOrReadOnly]
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ['order', 'status']
 
 class WishlistViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticatedOrReadOnly]
     queryset = Wishlist.objects.all()
     serializer_class = WishlistSerializer
-    permission_classes = [IsAuthenticatedOrReadOnly]
 
     def get_queryset(self):
         return Wishlist.objects.filter(user=self.request.user)  # Thay customer bằng user
 
 class NotificationViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticatedOrReadOnly]
     queryset = Notification.objects.all()
     serializer_class = NotificationSerializer
-    permission_classes = [IsAuthenticatedOrReadOnly]
 
     def get_queryset(self):
         return Notification.objects.filter(user=self.request.user)  # Thay customer bằng user
 
 class FAQViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticatedOrReadOnly]
     queryset = FAQ.objects.all()
     serializer_class = FAQSerializer
-    permission_classes = [IsAuthenticatedOrReadOnly]
 
 class ChatBotConversationViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticatedOrReadOnly]
     queryset = ChatBotConversation.objects.all()
     serializer_class = ChatBotConversationSerializer
-    permission_classes = [IsAuthenticatedOrReadOnly]
 
     def get_queryset(self):
         return ChatBotConversation.objects.filter(user=self.request.user)  # Thay customer bằng user
@@ -346,3 +388,93 @@ def get_customer_by_user(request):
     user = request.user  # Lấy user hiện tại từ JWT
     serializer = UserSerializer(user)
     return Response(serializer.data)
+
+class ProductRateSerializer(Serializer):
+    rating = IntegerField(min_value=1, max_value=5)
+    comment = CharField(required=False, allow_blank=True)
+
+class ProductViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticatedOrReadOnly]   # ai cũng GET được
+    queryset = Product.objects.all()
+    serializer_class = ProductSerializer
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = {
+        'category__name': ['exact'],
+        'gender__name': ['exact'],
+        'brand__name': ['exact'],
+        'sizes__value': ['exact'],
+        'colors__value': ['exact'],
+        'price': ['gte', 'lte'],
+    }
+    search_fields = ['name', 'description']
+    ordering_fields = ['price', 'stock_quantity']
+    
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        sort = self.request.query_params.get('sort', '')
+        if sort == 'price-asc':
+            queryset = queryset.order_by('price')
+        elif sort == 'price-desc':
+            queryset = queryset.order_by('-price')
+        elif sort == 'newest':
+            queryset = queryset.order_by('-id')  # Sắp xếp theo ID giảm dần (mới nhất)
+        print(f"Filtered queryset: {list(queryset.values('id', 'name', 'category__name', 'gender__name', 'brand__name'))}")
+        return queryset
+
+    def perform_create(self, serializer):
+        product = serializer.save()
+        images_data = self.request.FILES.getlist('images')
+        for image_data in images_data:
+            Image.objects.create(product=product, image=image_data)
+
+    def update(self, request, pk=None):
+        product = self.get_object()
+        serializer = self.get_serializer(product, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+
+            # Handle new images
+            new_images = request.FILES.getlist('images')
+            for image in new_images:
+                Image.objects.create(product=product, image=image)
+
+            # Handle images to delete
+            images_to_delete = request.data.getlist('images_to_delete')
+            for image_id in images_to_delete:
+                try:
+                    image = Image.objects.get(pk=image_id, product=product)
+                    image.delete()
+                except Image.DoesNotExist:
+                    pass  # Handle the case where the image doesn't exist
+
+            return Response(serializer.data)
+        return Response(serializer.errors, status=400)
+    @action(detail=True, methods=['get'])
+    def suggestions(self, request, pk=None):
+        product = self.get_object()
+        suggestions = Product.objects.filter(category=product.category).exclude(id=pk)[:3]
+        serializer = self.get_serializer(suggestions, many=True)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated])
+    def rate(self, request, pk=None):
+        ser = ProductRateSerializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        rating = ser.validated_data['rating']
+
+        purchased = OrderDetail.objects.filter(
+            product_id=pk, order__user=request.user, order__status='delivered'
+        ).exists()
+        if not purchased:
+            return Response({'detail': 'Bạn chưa mua sản phẩm này.'}, status=status.HTTP_403_FORBIDDEN)
+
+        p = Product.objects.get(pk=pk)
+        cur_reviews = int(p.reviews or 0)
+        cur_rating = float(p.rating or 0.0)
+        new_reviews = cur_reviews + 1
+        new_rating = ((cur_rating * cur_reviews) + rating) / new_reviews
+        p.reviews = new_reviews
+        p.rating = new_rating
+        p.save(update_fields=['reviews', 'rating'])
+        return Response({'rating': p.rating, 'reviews': p.reviews}, status=status.HTTP_200_OK)
+

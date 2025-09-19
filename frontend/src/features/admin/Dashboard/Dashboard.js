@@ -12,6 +12,7 @@ import {
 } from 'react-icons/fa';
 import { MdTrendingUp, MdTrendingDown } from 'react-icons/md';
 import './Dashboard.css';
+import api from '../../../services/api';
 
 const Dashboard = () => {
   const [stats, setStats] = useState({});
@@ -20,119 +21,81 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [timeFilter, setTimeFilter] = useState('week');
 
-  // Mock data
-  const mockStats = {
-    totalRevenue: 1250000000,
-    totalOrders: 1847,
-    totalCustomers: 892,
-    totalProducts: 156,
-    revenueGrowth: 12.5,
-    orderGrowth: 8.3,
-    customerGrowth: 15.2,
-    productGrowth: 3.4,
-    conversionRate: 2.8,
-    avgOrderValue: 675000
-  };
-
-  const mockRecentOrders = [
-    {
-      id: 'FT1706432100001',
-      customerName: 'Nguyễn Văn A',
-      total: 2490000,
-      status: 'processing',
-      date: '2025-01-28 14:30',
-      items: 2
-    },
-    {
-      id: 'FT1706431900002',
-      customerName: 'Trần Thị B',
-      total: 3990000,
-      status: 'shipping',
-      date: '2025-01-28 13:45',
-      items: 1
-    },
-    {
-      id: 'FT1706431800003',
-      customerName: 'Lê Văn C',
-      total: 1290000,
-      status: 'delivered',
-      date: '2025-01-28 12:15',
-      items: 1
-    },
-    {
-      id: 'FT1706431700004',
-      customerName: 'Phạm Thị D',
-      total: 4200000,
-      status: 'processing',
-      date: '2025-01-28 11:30',
-      items: 3
-    },
-    {
-      id: 'FT1706431600005',
-      customerName: 'Hoàng Văn E',
-      total: 2800000,
-      status: 'cancelled',
-      date: '2025-01-28 10:20',
-      items: 2
-    }
-  ];
-
-  const mockTopProducts = [
-    {
-      id: 1,
-      name: 'Sneaker Da Trắng Premium',
-      image: '/assets/images/products/giày.jpg',
-      sold: 245,
-      revenue: 610000000,
-      growth: 18.5,
-      stock: 12
-    },
-    {
-      id: 2,
-      name: 'Oxford Da Đen Classic',
-      image: '/assets/images/products/giày.jpg',
-      sold: 189,
-      revenue: 754000000,
-      growth: 12.3,
-      stock: 8
-    },
-    {
-      id: 3,
-      name: 'Boots Da Cao Cổ',
-      image: '/assets/images/products/giày.jpg',
-      sold: 156,
-      revenue: 655000000,
-      growth: -5.2,
-      stock: 23
-    },
-    {
-      id: 4,
-      name: 'Sandal Da Tối Giản',
-      image: '/assets/images/products/giày.jpg',
-      sold: 298,
-      revenue: 384000000,
-      growth: 25.8,
-      stock: 45
-    },
-    {
-      id: 5,
-      name: 'Giày Thể Thao Nike',
-      image: '/assets/images/products/giày.jpg',
-      sold: 134,
-      revenue: 535000000,
-      growth: 8.9,
-      stock: 3
-    }
-  ];
-
   useEffect(() => {
-    // Simulate API call
-    setTimeout(() => {
-      setStats(mockStats);
-      setRecentOrders(mockRecentOrders);
-      setTopProducts(mockTopProducts);
-      setLoading(false);
-    }, 1000);
+    const load = async () => {
+      try {
+        setLoading(true);
+
+        // 1) Đơn hàng (mới nhất)
+        const ordersRes = await api.get('orders/', { params: { ordering: '-created_at', page_size: 200 } });
+        const orders = Array.isArray(ordersRes.data) ? ordersRes.data : (ordersRes.data.results || []);
+
+        // 2) Sản phẩm bán chạy
+        const productsRes = await api.get('products/', { params: { ordering: '-sales_count', page_size: 50 } });
+        const products = Array.isArray(productsRes.data) ? productsRes.data : (productsRes.data.results || []);
+
+        // 3) Tổng số khách hàng
+        const usersRes = await api.get('users/', { params: { page_size: 1 } });
+        const usersCount = usersRes.data?.count ?? (Array.isArray(usersRes.data) ? usersRes.data.length : 0);
+
+        // Tính stats tổng quan
+        const deliveredOrders = orders.filter(o => String(o.status).toLowerCase() === 'delivered');
+        const totalRevenue = deliveredOrders.reduce((s, o) => s + Number(o.total || 0), 0);
+        const totalOrders = orders.length;
+        const avgOrderValue = totalOrders ? Math.round(totalRevenue / totalOrders) : 0;
+
+        setStats({
+          totalRevenue,
+          totalOrders,
+          totalCustomers: usersCount,
+          totalProducts: products.length,
+          revenueGrowth: 0,
+          orderGrowth: 0,
+          customerGrowth: 0,
+          productGrowth: 0,
+          conversionRate: 0,
+          avgOrderValue
+        });
+
+        // Chuẩn hóa đơn gần đây (hiển thị 5)
+        const statusMap = { pending: 'processing', shipped: 'shipping', delivered: 'delivered', cancelled: 'cancelled' };
+        const ro = orders.slice(0, 5).map(o => ({
+          id: 'FT' + o.id,
+          customerName:
+            (o.user && typeof o.user === 'object' ? (o.user.username || o.user.name) : '') ||
+            `User #${o.user ?? ''}`,
+          total: Number(o.total || 0),
+          status: statusMap[String(o.status).toLowerCase()] || 'processing',
+          date: (o.created_at || '').slice(0, 16).replace('T', ' '),
+          items: o.items?.length || 0
+        }));
+        setRecentOrders(ro);
+
+        // Chuẩn hóa top products (5 sp)
+        const tp = products.slice(0, 5).map(p => ({
+          id: p.id,
+          name: p.name,
+          image: (p.images && p.images[0]?.image) || '/assets/images/products/giày.jpg',
+          sold: p.sales_count || 0,
+          revenue: Math.round(Number(p.price || 0) * Number(p.sales_count || 0)),
+          growth: 0,
+          stock: p.stock_quantity || 0
+        }));
+        setTopProducts(tp);
+      } catch (e) {
+        console.error('Dashboard load error:', e?.response?.data || e.message);
+        setStats({
+          totalRevenue: 0, totalOrders: 0, totalCustomers: 0, totalProducts: 0,
+          revenueGrowth: 0, orderGrowth: 0, customerGrowth: 0, productGrowth: 0,
+          conversionRate: 0, avgOrderValue: 0
+        });
+        setRecentOrders([]);
+        setTopProducts([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
   }, [timeFilter]);
 
   const formatCurrency = (amount) => {
@@ -362,15 +325,6 @@ const Dashboard = () => {
                         {product.growth >= 0 ? <MdTrendingUp /> : <MdTrendingDown />}
                         {Math.abs(product.growth)}%
                       </div>
-                    </div>
-                    
-                    <div className="adm-product-actions">
-                      <Link to={`/admin/products/${product.id}`} className="adm-edit-btn">
-                        Chỉnh sửa
-                      </Link>
-                      <Link to={`/product/${product.id}`} className="adm-view-btn">
-                        Xem
-                      </Link>
                     </div>
                   </div>
                 </div>

@@ -12,6 +12,24 @@ import {
 } from 'react-icons/fa';
 import './Checkout.css';
 import api from '../../../services/api';
+import { buildVietQrImageUrl } from '../../../services/paymentService';
+
+export async function createOrUpdateQrPayment(orderId, transactionId) {
+  console.log('createOrUpdateQrPayment', orderId, transactionId);
+  const res = await api.get('payments/', { params: { order: orderId } });
+  const list = Array.isArray(res.data) ? res.data : (res.data.results || []);
+  if (list.length) {
+    const latest = list.sort((a,b)=>new Date(b.payment_date)-new Date(a.payment_date))[0];
+    await api.patch(`payments/${latest.id}/`, { status: 'paid', transaction_id: transactionId });
+    return;
+  }
+  await api.post('payments/', {
+    order: orderId,
+    transaction_id: transactionId,
+    status: 'paid',
+    gateway_response: 'VietQR webhook (simulated): user confirmed'
+  });
+}
 
 const Checkout = () => {
   const navigate = useNavigate();
@@ -43,6 +61,12 @@ const Checkout = () => {
 
   const [cartItems, setCartItems] = useState(buyNowItems || []);
   const [loadingCart, setLoadingCart] = useState(!buyNowItems);
+  const [qrOrderId, setQrOrderId] = useState(null);
+  const [qrPolling, setQrPolling] = useState(false);
+  const [transferContent, setTransferContent] = useState('');
+
+  // Thêm state để kiểm soát loading khi xác nhận thanh toán
+  const [confirmingPayment, setConfirmingPayment] = useState(false);
 
   const prefillShipping = async () => {
     try {
@@ -74,9 +98,10 @@ const Checkout = () => {
       return;
     }
     const loadCart = async () => {
+      let itemsRes = null; // Khai báo biến itemsRes ở đây
       try {
         setLoadingCart(true);
-        const itemsRes = await api.get('cart-items/');
+        itemsRes = await api.get('cart-items/');
         const raw = Array.isArray(itemsRes.data) ? itemsRes.data : (itemsRes.data.results || []);
         const productDetails = await Promise.all(
           raw.map(ci => api.get(`products/${ci.product}/`).then(r => r.data).catch(() => null))
@@ -105,7 +130,6 @@ const Checkout = () => {
         setLoadingCart(false);
       }
     };
-  
     loadCart();
     prefillShipping();
   }, [buyNowItems, stateItems]);
@@ -178,8 +202,14 @@ const Checkout = () => {
       await api.patch(`orders/${orderId}/`, {
         total: Number(orderTotal).toFixed(2),
         status: 'pending',
-        payment_method: pm
+        payment_method: pm,
+        payment_status: pm === 'qr' ? 'paid' : 'pending'
       });
+
+      // Webhook giả lập cho QR: ghi nhận thanh toán ngay
+      if (pm === 'qr') {
+        await createOrUpdateQrPayment(orderId, `QR_${orderId}`);
+      }
 
       await Promise.all(
         cartItems
@@ -217,6 +247,31 @@ const Checkout = () => {
     }
   };
 
+  // Thêm hàm xử lý khi user click "Tôi đã thanh toán"
+  const handleConfirmPayment = async () => {
+    console.log('handelConfirmPayment called');
+    if (!qrOrderId) return;
+    try {
+      setConfirmingPayment(true);
+      await createOrUpdateQrPayment(qrOrderId, `QR_${qrOrderId}`);
+      await api.patch(`orders/${qrOrderId}/`, { payment_status: 'paid' });
+
+      navigate('/order-success', {
+        state: {
+          orderNumber: 'FT' + qrOrderId,
+          total,
+          items: cartItems
+        }
+      });
+    } catch (error) {
+      console.error('Error confirming payment:', error);
+      alert('Có lỗi xảy ra khi xác nhận thanh toán. Vui lòng thử lại!');
+    } finally {
+      setConfirmingPayment(false);
+    }
+  };
+
+  const vietQrUrl = buildVietQrImageUrl({ amount: total, addInfo: transferContent });
   return (
     <div className="chk-checkout-page">
       <div className="chk-checkout-container">
@@ -393,18 +448,38 @@ const Checkout = () => {
                     </p>
                     <div style={{ display:'flex', gap:'1.5rem', alignItems:'center', flexWrap:'wrap' }}>
                       {/* Ảnh QR minh họa - thay bằng ảnh thật nếu có */}
-                      <img
-                        src="../../../../public/assets/images/qrcode.jpg"
-                        alt="QR thanh toán"
-                        style={{ width: 180, height: 180, background:'#f7fafc', borderRadius: 8 }}
-                        onError={(e) => { e.target.style.display = 'none'; }}
-                      />
-                      <div style={{ color: '#4a5568' }}>
-                        <div><strong>Tổng thanh toán:</strong> {total.toLocaleString('vi-VN')}đ</div>
-                        <div><strong>Nội dung:</strong> FT{Date.now()}</div>
-                        <div style={{ fontSize: 13, marginTop: 8 }}>Sau khi thanh toán thành công, bấm “Đặt hàng” để hoàn tất.</div>
-                      </div>
+                      {(() => {
+                        const contentToShow = transferContent || `FT${Date.now()}`;
+                        return (
+                          <>
+                            <img
+                              src={buildVietQrImageUrl({ amount: total, addInfo: contentToShow })}
+                              alt="QR thanh toán VietQR"
+                              style={{ width: 180, height: 180, background:'#f7fafc', borderRadius: 8 }}
+                              onError={(e) => { e.target.style.display = 'none'; }}
+                            />
+                            <div style={{ color: '#4a5568' }}>
+                              <div><strong>Tổng thanh toán:</strong> {total.toLocaleString('vi-VN')}đ</div>
+                              <div><strong>Nội dung:</strong> {contentToShow}</div>
+                              <div style={{ fontSize: 13, marginTop: 8 }}>Sau khi thanh toán thành công, bấm “Đặt hàng” để hoàn tất.</div>
+                            </div>
+                          </>
+                        );
+                      })()}
                     </div>
+                    {/* Thêm nút xác nhận vào phần hiển thị QR code */}
+                    {qrOrderId && (
+                      <div style={{ marginTop: '20px', textAlign: 'center' }}>
+                        <button
+                          type="button"
+                          className="chk-btn-secondary"
+                          onClick={handleConfirmPayment}
+                          disabled={confirmingPayment}
+                        >
+                          {confirmingPayment ? 'Đang xác nhận...' : 'Tôi đã thanh toán'}
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
 

@@ -281,45 +281,6 @@
 .ord-filter-group select:focus {
   border-color: #667eea;
 }
-
-/* Bulk Actions */
-.ord-bulk-actions {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  background: #f0f4ff;
-  border: 1px solid #c7d2fe;
-  padding: 1rem 1.5rem;
-  border-radius: 8px;
-  margin-bottom: 1.5rem;
-}
-
-.ord-bulk-actions span {
-  color: #4a5568;
-  font-weight: 500;
-}
-
-.ord-bulk-action-buttons {
-  display: flex;
-  gap: 0.75rem;
-}
-
-.ord-bulk-action-buttons button {
-  padding: 0.5rem 1rem;
-  border: none;
-  background: #667eea;
-  color: white;
-  border-radius: 6px;
-  font-size: 0.85rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.ord-bulk-action-buttons button:hover {
-  background: #5a67d8;
-}
-
 /* Orders Table */
 .ord-orders-table-container {
   background: white;
@@ -486,6 +447,9 @@
 .ord-print-btn:hover {
   background: #5a67d8;
 }
+
+.ord-delete-btn { background: #e53e3e; color: #fff; }
+.ord-delete-btn:hover { background: #c53030; }
 
 /* Pagination */
 .ord-pagination {

@@ -26,6 +26,7 @@ api.interceptors.request.use(
     if (!noAuthUrls.some((url) => config.url.includes(url))) {
       const token = localStorage.getItem("access_token"); // 🔥 đổi key cho đồng nhất
       if (token) {
+        config.headers = config.headers || {};
         config.headers.Authorization = `Bearer ${token}`;
       }
     }

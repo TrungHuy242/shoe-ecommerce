@@ -15,10 +15,11 @@ import {
   FaTimes,
   FaPrint,
   FaDownload,
-  FaClipboardList
+  FaClipboardList,
+  FaTrash
 } from 'react-icons/fa';
 import './ManageOrders.css';
-
+import { listOrders, getUser, updateOrderStatus, mapBeToUiStatus , deleteOrder} from '../../../services/orderService';
 const ManageOrders = () => {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -29,99 +30,48 @@ const ManageOrders = () => {
   const [sortBy, setSortBy] = useState('date');
   const [sortOrder, setSortOrder] = useState('desc');
   const [showFilters, setShowFilters] = useState(false);
-  const [selectedOrders, setSelectedOrders] = useState(new Set());
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(15);
 
-  // Mock orders data
-  const mockOrders = [
-    {
-      id: 'FT1706432100001',
-      customerName: 'Nguyễn Văn A',
-      customerEmail: 'nguyenvana@email.com',
-      customerPhone: '0901234567',
-      total: 8970000,
-      status: 'processing',
-      paymentStatus: 'paid',
-      paymentMethod: 'card',
-      date: '2025-01-28 14:30',
-      shippingAddress: '123 Lê Lợi, Quận 1, TP.HCM',
-      items: [
-        { name: 'Sneaker Da Trắng Premium', quantity: 2, price: 2490000 },
-        { name: 'Oxford Da Đen', quantity: 1, price: 3990000 }
-      ],
-      tracking: null,
-      notes: 'Giao hàng buổi chiều'
-    },
-    {
-      id: 'FT1706431900002',
-      customerName: 'Trần Thị B',
-      customerEmail: 'tranthib@email.com',
-      customerPhone: '0901234568',
-      total: 3990000,
-      status: 'shipping',
-      paymentStatus: 'paid',
-      paymentMethod: 'paypal',
-      date: '2025-01-27 13:45',
-      shippingAddress: '456 Nguyễn Huệ, Quận 1, TP.HCM',
-      items: [
-        { name: 'Oxford Da Đen Classic', quantity: 1, price: 3990000 }
-      ],
-      tracking: 'VN123456789',
-      notes: null
-    },
-    {
-      id: 'FT1706431800003',
-      customerName: 'Lê Văn C',
-      customerEmail: 'levanc@email.com',
-      customerPhone: '0901234569',
-      total: 1290000,
-      status: 'delivered',
-      paymentStatus: 'paid',
-      paymentMethod: 'cod',
-      date: '2025-01-26 12:15',
-      shippingAddress: '789 Hai Bà Trưng, Quận 3, TP.HCM',
-      items: [
-        { name: 'Sandal Da Tối Giản', quantity: 1, price: 1290000 }
-      ],
-      tracking: 'VN987654321',
-      notes: null
-    },
-    {
-      id: 'FT1706431700004',
-      customerName: 'Phạm Thị D',
-      customerEmail: 'phamthid@email.com',
-      customerPhone: '0901234570',
-      total: 4200000,
-      status: 'cancelled',
-      paymentStatus: 'refunded',
-      paymentMethod: 'card',
-      date: '2025-01-25 11:30',
-      shippingAddress: '321 Lý Tự Trọng, Quận 1, TP.HCM',
-      items: [
-        { name: 'Boots Da Cao Cổ', quantity: 1, price: 4200000 }
-      ],
-      tracking: null,
-      notes: 'Khách hàng hủy do thay đổi ý định'
-    },
-    {
-      id: 'FT1706431600005',
-      customerName: 'Hoàng Văn E',
-      customerEmail: 'hoangvane@email.com',
-      customerPhone: '0901234571',
-      total: 2800000,
-      status: 'processing',
-      paymentStatus: 'pending',
-      paymentMethod: 'cod',
-      date: '2025-01-25 10:20',
-      shippingAddress: '654 Điện Biên Phủ, Quận Bình Thạnh, TP.HCM',
-      items: [
-        { name: 'Sneaker Nike Air Max', quantity: 1, price: 2800000 }
-      ],
-      tracking: null,
-      notes: 'Khách yêu cầu gọi trước khi giao'
-    }
-  ];
+  // Lấy đơn hàng từ API
+  useEffect(() => {
+    let mounted = true;
+    const load = async () => {
+      try {
+        setLoading(true);
+        const raw = await listOrders({ ordering: '-created_at' });
+        const enriched = await Promise.all(
+          raw.map(async (o) => {
+            const u = await getUser(o.user);
+            return {
+              id: 'FT' + o.id,
+              rawId: o.id,
+              customerName: u?.username || u?.name || `User #${o.user ?? ''}`,
+              customerEmail: u?.email || '',
+              customerPhone: u?.phone || '',
+              total: Number(o.total || 0),
+              status: mapBeToUiStatus(o.status),
+              paymentStatus: (o.payment_status || 'pending').toLowerCase(), 
+              paymentMethod: o.payment_method || '',
+              date: o.created_at || o.updated_at || new Date().toISOString(),
+              shippingAddress: u?.address || '',
+              items: [],
+              tracking: null,
+              notes: null
+            };
+          })
+        );
+        if (mounted) setOrders(enriched);
+      } catch (e) {
+        console.error('Failed to load orders', e);
+        if (mounted) setOrders([]);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    };
+    load();
+    return () => { mounted = false; };
+  }, []);
 
   const statusOptions = [
     { value: 'processing', label: 'Đang xử lý', color: '#f7931e', icon: FaClipboardList },
@@ -132,19 +82,11 @@ const ManageOrders = () => {
 
   const paymentStatusOptions = [
     { value: 'pending', label: 'Chờ thanh toán', color: '#f7931e' },
+    { value: 'processing', label: 'Đang thanh toán', color: '#3182ce' },
     { value: 'paid', label: 'Đã thanh toán', color: '#38a169' },
     { value: 'refunded', label: 'Đã hoàn tiền', color: '#667eea' },
     { value: 'failed', label: 'Thanh toán lỗi', color: '#e53e3e' }
   ];
-
-  useEffect(() => {
-    // Simulate API call
-    setTimeout(() => {
-      setOrders(mockOrders);
-      setLoading(false);
-    }, 1000);
-  }, []);
-
   // Filter and sort orders
   const filteredOrders = orders
     .filter(order => {
@@ -218,44 +160,31 @@ const ManageOrders = () => {
       setSortOrder('asc');
     }
   };
-
-  const handleSelectOrder = (orderId) => {
-    setSelectedOrders(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(orderId)) {
-        newSet.delete(orderId);
-      } else {
-        newSet.add(orderId);
-      }
-      return newSet;
-    });
-  };
-
-  const handleSelectAll = () => {
-    if (selectedOrders.size === paginatedOrders.length) {
-      setSelectedOrders(new Set());
-    } else {
-      setSelectedOrders(new Set(paginatedOrders.map(o => o.id)));
+  const handleStatusChange = async (displayId, newStatus) => {
+    try {
+      const o = orders.find(x => x.id === displayId);
+      if (!o) return;
+      await updateOrderStatus(o.rawId, newStatus);
+      setOrders(prev => prev.map(order =>
+        order.id === displayId ? { ...order, status: newStatus } : order
+      ));
+    } catch (e) {
+      console.error('Update status failed', e);
+      alert('Cập nhật trạng thái thất bại');
     }
   };
 
-  const handleStatusChange = (orderId, newStatus) => {
-    setOrders(prev => prev.map(order => 
-      order.id === orderId 
-        ? { ...order, status: newStatus }
-        : order
-    ));
-  };
-
-  const handleBulkStatusChange = (newStatus) => {
-    if (selectedOrders.size === 0) return;
-    
-    setOrders(prev => prev.map(order => 
-      selectedOrders.has(order.id)
-        ? { ...order, status: newStatus }
-        : order
-    ));
-    setSelectedOrders(new Set());
+  const handleDeleteOrder = async (displayId) => {
+    const o = orders.find(x => x.id === displayId);
+    if (!o) return;
+    if (!window.confirm('Bạn có chắc muốn xóa đơn hàng này ?')) return;
+    try {
+      await deleteOrder(o.rawId);
+      setOrders(prev => prev.filter(order => order.id !== displayId));
+    } catch (e) {
+      console.error('Delete order failed', e);
+      alert('Xóa đơn hàng không thành công');
+    }
   };
 
   const handleExport = () => {
@@ -407,36 +336,11 @@ const ManageOrders = () => {
           )}
         </div>
 
-        {/* Bulk Actions */}
-        {selectedOrders.size > 0 && (
-          <div className="ord-bulk-actions">
-            <span>Đã chọn {selectedOrders.size} đơn hàng</span>
-            <div className="ord-bulk-action-buttons">
-              <button onClick={() => handleBulkStatusChange('processing')}>
-                Chuyển sang Đang xử lý
-              </button>
-              <button onClick={() => handleBulkStatusChange('shipping')}>
-                Chuyển sang Đang giao
-              </button>
-              <button onClick={() => handleBulkStatusChange('delivered')}>
-                Chuyển sang Đã giao
-              </button>
-            </div>
-          </div>
-        )}
-
         {/* Orders Table */}
         <div className="ord-orders-table-container">
           <table className="ord-orders-table">
             <thead>
               <tr>
-                <th>
-                  <input
-                    type="checkbox"
-                    checked={selectedOrders.size === paginatedOrders.length && paginatedOrders.length > 0}
-                    onChange={handleSelectAll}
-                  />
-                </th>
                 <th onClick={() => handleSort('id')} className="ord-sortable">
                   Mã đơn <FaSort />
                 </th>
@@ -463,13 +367,6 @@ const ManageOrders = () => {
                 
                 return (
                   <tr key={order.id}>
-                    <td>
-                      <input
-                        type="checkbox"
-                        checked={selectedOrders.has(order.id)}
-                        onChange={() => handleSelectOrder(order.id)}
-                      />
-                    </td>
                     <td>
                       <Link to={`/admin/orders/${order.id}`} className="ord-order-link">
                         #{order.id}
@@ -523,6 +420,13 @@ const ManageOrders = () => {
                           onClick={() => window.print()}
                         >
                           <FaPrint />
+                        </button>
+                        <button
+                          className="ord-action-btn ord-delete-btn"
+                          title="Xóa đơn hàng"
+                          onClick={() => handleDeleteOrder(order.id)}
+                        >
+                          <FaTrash />
                         </button>
                       </div>
                     </td>

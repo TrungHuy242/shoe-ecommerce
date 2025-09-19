@@ -493,6 +493,9 @@
   transform: translateY(-1px);
 }
 
+.oh-confirm-btn { background:#38a169; color:#fff; }
+.oh-confirm-btn:hover { background:#2f855a; }
+
 /* Responsive */
 @media (max-width: 1024px) {
   .oh-header-content {

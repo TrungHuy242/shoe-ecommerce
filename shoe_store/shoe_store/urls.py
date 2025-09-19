@@ -20,10 +20,19 @@ from core.views import ProductViewSet, CategoryViewSet, BrandViewSet, BannerView
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from django.conf import settings
 from django.conf.urls.static import static
+from rest_framework.decorators import api_view, permission_classes
+from django.views.decorators.csrf import csrf_exempt
+import re, hmac, hashlib
+from django.conf import settings
+from rest_framework.response import Response
+from rest_framework.permissions import AllowAny
+from django.db import transaction
+from core.models import Order, Payment
+from datetime import datetime
 
 
 router = DefaultRouter()
-router.register(r'products', ProductViewSet),
+router.register(r'products', ProductViewSet, basename='product')
 router.register(r'categories', CategoryViewSet),
 router.register(r'brands', BrandViewSet),
 router.register(r'banners', BannerViewSet),

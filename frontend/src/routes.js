@@ -15,6 +15,7 @@ import ManageProducts from './features/admin/ManageProducts/ManageProducts';
 import AddProduct from './features/admin/ManageProducts/AddProduct/AddProduct';
 import EditProduct from './features/admin/ManageProducts/EditProduct/EditProduct';
 import ManageOrders from './features/admin/ManageOrders/ManageOrders';
+import OrdersDetail from './features/admin/ManageOrders/OrderDetail/OrderDetail';
 import ManageCustomers from './features/admin/ManageCustomers/ManageCustomers';
 import ManageCategories from './features/admin/ManageProducts/ManageCategories/ManageCategories';
 import ManageBrands from './features/admin/ManageProducts/ManageBrands/ManageBrands';
@@ -81,6 +82,7 @@ function AppRoutes() {
           <Route path="products/add-product" element={<AddProduct />} />
           <Route path="products/edit/:id" element={<EditProduct />} />
           <Route path="orders" element={<ManageOrders />} />
+          <Route path="orders/:id" element={<OrdersDetail />} />
           <Route path="customers" element={<ManageCustomers />} />
           <Route path="categories" element={<ManageCategories />} />
           <Route path="brands" element={<ManageBrands />} />

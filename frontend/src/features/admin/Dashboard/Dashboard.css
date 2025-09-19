@@ -439,40 +439,6 @@
   color: #e53e3e;
 }
 
-.adm-product-actions {
-  display: flex;
-  gap: 0.75rem;
-}
-
-.adm-edit-btn,
-.adm-view-btn {
-  padding: 0.5rem 1rem;
-  border-radius: 6px;
-  text-decoration: none;
-  font-size: 0.8rem;
-  font-weight: 500;
-  transition: all 0.2s ease;
-}
-
-.adm-edit-btn {
-  background: #667eea;
-  color: white;
-}
-
-.adm-edit-btn:hover {
-  background: #5a67d8;
-}
-
-.adm-view-btn {
-  background: #f7fafc;
-  color: #4a5568;
-  border: 1px solid #e2e8f0;
-}
-
-.adm-view-btn:hover {
-  background: #edf2f7;
-  border-color: #cbd5e0;
-}
 
 /* Responsive */
 @media (max-width: 1200px) {
