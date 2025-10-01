@@ -38,15 +38,15 @@ const OrderHistory = () => {
 
   // ĐÁNH GIÁ (FE only)
   const [reviewOpen, setReviewOpen] = useState(false);
-  const [reviewItem, setReviewItem] = useState(null); // { productId, name, image, ... }
+  const [reviewItem, setReviewItem] = useState(null); 
   const [reviewStars, setReviewStars] = useState(5);
   const [reviewComment, setReviewComment] = useState('');
   const [localReviews, setLocalReviews] = useState(() => {
     try { return JSON.parse(localStorage.getItem('local_reviews') || '{}'); } catch { return {}; }
   });
-
-  const isReviewed = (productId) => !!localReviews?.[productId];
-  const getReview = (productId) => localReviews?.[productId];
+  
+  const isReviewed = (orderId, productId) => !!localReviews?.[makeReviewKey(orderId, productId)];
+  const getReview = (orderId, productId) => localReviews?.[makeReviewKey(orderId, productId)];
 
   const getCurrentUserId = () => {
     try {
@@ -59,6 +59,8 @@ const OrderHistory = () => {
       return null;
     }
   };
+  
+  const makeReviewKey = (orderId, productId) => `${orderId}:${productId}`;
 
   useEffect(() => {
     const loadOrders = async () => {
@@ -233,8 +235,8 @@ const OrderHistory = () => {
     }
   };
 
-  const openReview = (item) => {
-    setReviewItem(item);
+  const openReview = (orderId, item) => {
+    setReviewItem({...item, orderId: orderId});
     setReviewStars(5);
     setReviewComment('');
     setReviewOpen(true);
@@ -249,10 +251,11 @@ const OrderHistory = () => {
         { rating: Number(reviewStars) || 5, comment: String(reviewComment || '') },
         token ? { headers: { Authorization: `Bearer ${token}` } } : {}
       );
-
+  
+      const key = makeReviewKey(reviewItem.orderId, reviewItem.productId);
       const next = {
         ...localReviews,
-        [reviewItem.productId]: {
+        [key]: {
           stars: Number(reviewStars) || 5,
           comment: String(reviewComment || ''),
           at: new Date().toISOString(),
@@ -262,7 +265,7 @@ const OrderHistory = () => {
       };
       setLocalReviews(next);
       localStorage.setItem('local_reviews', JSON.stringify(next));
-
+  
       setReviewOpen(false);
       setReviewItem(null);
       alert('Đánh giá thành công. Cảm ơn bạn!');
@@ -404,7 +407,7 @@ const OrderHistory = () => {
 
                   <div className="oh-order-items">
                     {order.items.map(item => {
-                      const saved = getReview(item.productId);
+                      const saved = getReview(order.rawId, item.productId);
                       return (
                         <div key={item.id} className="oh-order-item">
                           <img src={item.image} alt={item.name} />
@@ -417,16 +420,16 @@ const OrderHistory = () => {
                               {item.price.toLocaleString('vi-VN')}đ
                             </div>
 
-                            {order.status === 'delivered' && !isReviewed(item.productId) && (
+                            {order.status === 'delivered' && !isReviewed(order.rawId, item.productId) && (
                               <button
                                 className="oh-review-btn"
-                                onClick={() => openReview(item)}
+                                onClick={() => openReview(order.rawId, item)}
                               >
                                 Đánh giá sản phẩm
                               </button>
                             )}
 
-                            {order.status === 'delivered' && isReviewed(item.productId) && (
+                            {order.status === 'delivered' && isReviewed(order.rawId, item.productId) && (
                               <div style={{ marginTop: 8, color: '#f59e0b', fontWeight: 600 }}>
                                 Đã đánh giá: {'★'.repeat(saved?.stars || 5)}
                               </div>

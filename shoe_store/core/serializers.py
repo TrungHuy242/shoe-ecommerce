@@ -1,6 +1,6 @@
 # core/serializers.py
 from rest_framework import serializers
-from .models import Product, Category, Brand, Image, Banner, Promotion, ProductPromotion, Cart, CartItem, Order, OrderDetail, Payment, Wishlist, Notification, FAQ, ChatBotConversation, Size, Color, Gender, User
+from .models import Product, Category, Brand, Image, Banner, Promotion, ProductPromotion, Cart, CartItem, Order, OrderDetail, Payment, Wishlist, Notification, Size, Color, Gender, User
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 class CategorySerializer(serializers.ModelSerializer):
@@ -103,16 +103,31 @@ class NotificationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Notification
         fields = '__all__'
-
+class FAQCategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User  # placeholder
+        fields = []
+        
 class FAQSerializer(serializers.ModelSerializer):
     class Meta:
-        model = FAQ
-        fields = '__all__'
+        model = User  # placeholder
+        fields = []
+        
+class UnansweredQuestionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = []
 
+
+class ChatSessionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User  # placeholder
+        fields = []
+        
 class ChatBotConversationSerializer(serializers.ModelSerializer):
     class Meta:
-        model = ChatBotConversation
-        fields = '__all__'
+        model = User  # placeholder
+        fields = []
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     def validate(self, attrs):
@@ -120,3 +135,11 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         data['role'] = self.user.customer.role if hasattr(self.user, 'customer') else 0
         data['user_id'] = self.user.id
         return data
+
+
+# Optional Helper serializers
+class ProductAvailabilitySerializer(serializers.Serializer):
+    query = serializers.CharField(required=True, allow_blank=False)
+
+class OrderStatusSerializer(serializers.Serializer):
+    code = serializers.CharField(required=True, allow_blank=False)

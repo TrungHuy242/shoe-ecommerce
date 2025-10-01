@@ -5,7 +5,7 @@ import Footer from './components/Footer/Footer';
 import Home from './features/user/Home/Home';
 import ProductDetail from './features/user/ProductDetail/ProductDetail';
 import Product from './features/user/Product/Product';
-import ProductRecommendation from './features/user/ProductRecommendation/ProductRecommendation';
+import BrandProducts from './features/user/BrandProducts/BrandProducts';
 import Cart from './features/user/Cart/Cart';
 import Wishlist from './features/user/Wishlist/Wishlist';
 import OrderHistory from './features/user/OrderHistory/OrderHistory';
@@ -21,18 +21,19 @@ import ManageCategories from './features/admin/ManageProducts/ManageCategories/M
 import ManageBrands from './features/admin/ManageProducts/ManageBrands/ManageBrands';
 import ManageSizes from './features/admin/ManageProducts/ManageSizes/ManageSizes';
 import ManageColors from './features/admin/ManageProducts/ManageColors/ManageColors';
-import ChatbotDashboard from './features/admin/ChatbotDashboard/ChatbotDashboard';
 import Checkout from './features/user/Checkout/Checkout';
 import OrderSuccess from './features/user/OrderSuccess/OrderSuccess';
 import Login from './features/auth/Login';
 import Register from './features/auth/Register';
-import Chatbot from './components/Chatbot/Chatbot';
 import AdminLayout from './features/admin/AdminLayout'; // Import the AdminLayout
+import ManagePromotions from './features/admin/ManagePromotions/ManagePromotions';
 import Account from './features/user/Account/Account';
 import Men from './features/user/Men/Men';
 import Women from './features/user/Women/Women';
 import Sandals from './features/user/Sandals/Sandals';
 import Settings from './features/user/Settings/Settings';
+import Deals from './features/user/Deals/Deals';
+import CategoryProducts from './features/user/CategoryProducts/CategoryProducts';
 import { useAuth } from './context/AuthContext'; // Import useAuth
 
 function AppRoutes() {
@@ -60,7 +61,8 @@ function AppRoutes() {
         <Route path="/" element={<Home />} />
         <Route path="/product/:id" element={<ProductDetail />} />
         <Route path="/products" element={<Product />} />
-        <Route path="/product-recommendation" element={<ProductRecommendation />} />
+        <Route path="/brands/:brandName" element={<BrandProducts />} />
+        <Route path="/categories/:categoryId" element={<CategoryProducts />} />
         <Route path="/cart" element={<Cart />} />
         <Route path="/checkout" element={isLoggedIn ? <Checkout /> : <Navigate to="/login" />} />
         <Route path="/order-success" element={<OrderSuccess />} />
@@ -72,6 +74,7 @@ function AppRoutes() {
         <Route path="/women" element={<Women />} />
         <Route path="/sandals" element={<Sandals />} />
         <Route path="/settings" element={<Settings />} />
+        <Route path="/deals" element={<Deals />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
 
@@ -88,11 +91,10 @@ function AppRoutes() {
           <Route path="brands" element={<ManageBrands />} />
           <Route path="sizes" element={<ManageSizes />} />
           <Route path="colors" element={<ManageColors />} />
-          <Route path="chatbot" element={<ChatbotDashboard />} />
+          <Route path="promotions" element={<ManagePromotions />} />
         </Route>
       </Routes>
       {!isAdmin && !isLoginPage && !isRegisterPage && <Footer />}
-      {!isAdmin && <Chatbot />}
     </>
   );
 }

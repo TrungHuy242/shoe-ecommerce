@@ -16,7 +16,7 @@ Including another URLconf
 """
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from core.views import ProductViewSet, CategoryViewSet, BrandViewSet, BannerViewSet, ImageViewSet, ProductPromotionViewSet, PromotionViewSet, CartItemViewSet, CartViewSet, OrderViewSet, OrderDetailViewSet ,PaymentViewSet, WishlistViewSet, NotificationViewSet, FAQViewSet,ChatBotConversationViewSet, ChatbotView,CustomTokenObtainPairView,RegisterView, SizeViewSet, ColorViewSet, GenderViewSet, UserViewSet
+from core.views import ProductViewSet, CategoryViewSet, BrandViewSet, BannerViewSet, ImageViewSet, ProductPromotionViewSet, PromotionViewSet, CartItemViewSet, CartViewSet, OrderViewSet, OrderDetailViewSet ,PaymentViewSet, WishlistViewSet, NotificationViewSet, CustomTokenObtainPairView,RegisterView, SizeViewSet, ColorViewSet, GenderViewSet, UserViewSet
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from django.conf import settings
 from django.conf.urls.static import static
@@ -25,10 +25,17 @@ from django.views.decorators.csrf import csrf_exempt
 import re, hmac, hashlib
 from django.conf import settings
 from rest_framework.response import Response
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from django.db import transaction
 from core.models import Order, Payment
-from datetime import datetime
+import difflib
+from django.db.models import Count
+from django.utils import timezone
+from datetime import datetime, timedelta
+from rest_framework.views import APIView
+# Chatbot models removed
+from core.views import ProductAvailabilityView, OrderStatusView
+
 
 
 router = DefaultRouter()
@@ -46,8 +53,8 @@ router.register(r'order-details', OrderDetailViewSet),
 router.register(r'payments', PaymentViewSet),
 router.register(r'wishlists', WishlistViewSet),
 router.register(r'notifications', NotificationViewSet),
-router.register(r'faqs', FAQViewSet),
-router.register(r'chatbot-conversations', ChatBotConversationViewSet)
+# FAQ endpoints removed
+# Chatbot endpoints disabled per request
 router.register(r'sizes', SizeViewSet)
 router.register(r'colors', ColorViewSet)
 router.register(r'genders', GenderViewSet)
@@ -59,7 +66,9 @@ urlpatterns = [
     path('api/', include(router.urls)),
     path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
-    path('api/chatbot/', ChatbotView.as_view(), name='chatbot'),
+    # Chatbot endpoints removed
     path('api/token/', CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/register/', RegisterView.as_view(), name='register'),
+    path('api/products/check-availability/', ProductAvailabilityView.as_view(), name='product-availability'),
+    path('api/orders/check-status/', OrderStatusView.as_view(), name='order-status'),
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

@@ -2,11 +2,13 @@
 import { Link } from "react-router-dom";
 import { Heart, ShoppingCart, Search, User } from "lucide-react";
 import { useState, useEffect } from "react";
-import { useAuth } from "../../context/AuthContext"; // Đường dẫn có thể cần điều chỉnh
+import { useAuth } from "../../context/AuthContext";
+import { useCart } from "../../context/CartContext";
 import "./Header.css";
 
 const Header = () => {
-  const { isLoggedIn, userName, logout } = useAuth(); // Loại bỏ checkAuthStatus
+  const { isLoggedIn, userName, logout } = useAuth();
+  const { cartCount } = useCart();
   const [showDropdown, setShowDropdown] = useState(false);
 
   const toggleDropdown = () => {
@@ -35,6 +37,7 @@ const Header = () => {
           <Link to="/men" className="nav-link">Nam</Link>
           <Link to="/women" className="nav-link">Nữ</Link>
           <Link to="/sandals" className="nav-link">Dép</Link>
+          <Link to="/deals" className="nav-link">Săn mã</Link>
         </nav>
         <div className="user-actions-header">
           <div className="search-box-header">
@@ -46,7 +49,9 @@ const Header = () => {
           </Link>
           <Link to="/cart" className="icon-btn-header cart-btn-header">
             <ShoppingCart size={22} />
-            <span className="cart-count-header">3</span>
+            {cartCount > 0 && (
+              <span className="cart-count-header">{cartCount}</span>
+            )}
           </Link>
           <div className="account-section-header">
             {isLoggedIn ? (

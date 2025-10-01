@@ -48,9 +48,10 @@ const Sidebar = () => {
         <Link to="/admin/customers" className="admin-nav-item">
           <FaUsers /> Khách hàng
         </Link>
-        <Link to="/admin/chatbot" className="admin-nav-item">
-          <FaComments /> Chatbot
+        <Link to="/admin/promotions" className="admin-nav-item">
+          <FaChartLine /> Khuyến mãi
         </Link>
+        {/* Chatbot menu removed */}
         <Link to="/login" className="admin-nav-item logout" onClick={() => localStorage.removeItem("user")}>
           <FaSignOutAlt /> Đăng xuất
         </Link>

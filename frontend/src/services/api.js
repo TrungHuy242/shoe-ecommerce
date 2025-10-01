@@ -14,17 +14,25 @@ api.interceptors.request.use(
     const noAuthUrls = [
       "token/",
       "register/",
-      "categories/",
-      "genders/",
-      "brands/",
-      "products/",
-      "sizes/",
-      "colors/",
     ];
 
-    // Nếu url không thuộc danh sách công khai => thêm token
-    if (!noAuthUrls.some((url) => config.url.includes(url))) {
-      const token = localStorage.getItem("access_token"); // 🔥 đổi key cho đồng nhất
+    // Các endpoint chỉ cần auth cho POST/PUT/PATCH/DELETE, GET thì không cần
+    const readOnlyEndpoints = [
+      "categories/",
+      "genders/", 
+      "brands/",
+      "sizes/",
+      "colors/",
+      "products/"
+    ];
+    
+    // Nếu là GET request đến read-only endpoints thì không cần token
+    const isReadOnlyGet = config.method === 'get' && 
+      readOnlyEndpoints.some(endpoint => config.url.includes(endpoint));
+
+    // Nếu url không thuộc danh sách công khai và không phải GET read-only => thêm token
+    if (!noAuthUrls.some((url) => config.url.includes(url)) && !isReadOnlyGet) {
+      const token = localStorage.getItem("access_token");
       if (token) {
         config.headers = config.headers || {};
         config.headers.Authorization = `Bearer ${token}`;

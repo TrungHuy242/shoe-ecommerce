@@ -755,3 +755,39 @@ a { text-decoration:none; color:inherit; }
   font-weight: 600;
   white-space: nowrap;
 }
+
+.rating-stars {
+  display: flex;
+  gap: 3px;
+  font-size: 1.2rem;
+}
+
+.star {
+  color: #d1d5db; /* màu xám cho sao chưa fill */
+}
+
+.star.filled {
+  color: #fbbf24; /* màu vàng cho sao đã fill */
+}
+
+.reviews {
+  font-size: 0.85rem;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+/* Brand card hover effect */
+.home-brand-card {
+  background: #ffffff;
+  border-radius: 1rem;
+  padding: 1rem 1rem 1.25rem;
+  box-shadow: 0 10px 24px rgba(0,0,0,0.06);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  text-decoration: none;
+  color: inherit;
+}
+
+.home-brand-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 16px 36px rgba(0,0,0,0.12);
+}

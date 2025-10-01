@@ -33,7 +33,6 @@ const ProductDetail = ({ isOpen, onRequestClose, product, categories, genders, b
           <p><strong>Điểm đánh giá:</strong> {product.rating?.toFixed(1)}</p>
           <p><strong>Số lượt đánh giá:</strong> {product.reviews}</p>
           <p><strong>Số lượt bán:</strong> {product.sales_count}</p>
-          <p><strong>Ngày tạo:</strong> {new Date(product.created_at).toLocaleString('vi-VN')}</p>
           <div className="images-block">
             <strong>Hình ảnh:</strong>
             {product.images && product.images.length > 0 ? (

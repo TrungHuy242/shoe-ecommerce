@@ -183,26 +183,29 @@ const Home = () => {
                   <h4>{prod.name}</h4>
                   <div className="rating">
                     <div className="rating-stars">
-                      {Array.from({ length: 4 }, (_, i) => (
-                        <FaStar key={i} />
+                      {Array.from({ length: 5 }, (_, i) => (
+                        <FaStar 
+                          key={i} 
+                          className={i < Math.round(prod.rating || 0) ? "star filled" : "star"}
+                        />
                       ))}
                     </div>
-                    <span className="reviews">(120)</span>
+                    <span className="reviews">({prod.reviews || 0})</span>
                   </div>
                 </div>
                 <div className="price-cart-row">
                   <div className="price-block">
                     {prod.originalPrice && (
                       <span className="original-price">
-                        {Number(prod.originalPrice).toLocaleString()}đ
+                        {Number(prod.originalPrice).toLocaleString('vi-VN')}đ
                       </span>
                     )}
                     <span className="product-price">
-                      {Number(prod.price).toLocaleString()}đ
+                      {Number(prod.price).toLocaleString('vi-VN')}đ
                     </span>
                   </div>
                   <div className="sales-info">
-                    Đã bán {Number(prod?.sales_count ?? 0).toLocaleString()}
+                    Đã bán {Number(prod?.sales_count ?? 0).toLocaleString('vi-VN')}
                   </div>
                 </div>
               </div>
@@ -219,7 +222,11 @@ const Home = () => {
         </div>
         <div className="home-brands-grid">
           {brands.length > 0 ? brands.map((b) => (
-            <div key={b.id} className="home-brand-card">
+            <Link 
+              to={`/brands/${b.name}`} 
+              key={b.id} 
+              className="home-brand-card"
+            >
               <div className="home-brand-image-wrap">
                 <img
                   src={b.image || "https://via.placeholder.com/180x80?text=Brand"}
@@ -228,7 +235,7 @@ const Home = () => {
                 />
               </div>
               <div className="home-brand-name">{b.name}</div>
-            </div>
+            </Link>
           )) : <p>Chưa có thương hiệu.</p>}
         </div>
       </section>

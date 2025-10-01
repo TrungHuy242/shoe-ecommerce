@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import api from '../../../services/api';
+import { useCart } from '../../../context/CartContext';
 import { 
   FaHeart, 
   FaShoppingCart, 
@@ -28,8 +29,10 @@ const ProductDetail = () => {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [ addingToCart, setAddingToCart ] = useState(false);
 
   const navigate = useNavigate();
+  const { addToCart } = useCart();
   const vnd = new Intl.NumberFormat('vi-VN'); // format VND
 
   useEffect(() => {
@@ -102,6 +105,7 @@ const ProductDetail = () => {
       return null;
     }
   };
+  
   const loadWishlistStatus = async (productId) => {
     try {
       const userId = getCurrentUserId();
@@ -170,31 +174,29 @@ const ProductDetail = () => {
 
     const userId = getCurrentUserId();
     if (!userId) { navigate('/login'); return; }
-
+    
+    setAddingToCart(true);
     try {
-      if (await isProductInCart(product.id)) {
-        alert('Sản phẩm này đã có trong giỏ hàng.');
-        return;
-      }
-      const cartId = await getOrCreateCartId();
-      const res = await api.post('cart-items/', {
-        cart: cartId,
-        product: product.id,
-        quantity
-      });
-      // Lưu meta size/color vào localStorage theo cartItemId
-      const createdId = res?.data?.id;
-      if (createdId) {
+      // Sử dụng addToCart từ CartContext thay vì gọi API trực tiếp
+      const success = await addToCart(product.id, quantity);
+      
+      if (success) {
+        // Lưu meta size/color vào localStorage theo cartItemId
         const metaRaw = localStorage.getItem('cart_item_meta');
         const meta = metaRaw ? JSON.parse(metaRaw) : {};
-        meta[createdId] = { size: selectedSize, color: selectedColor };
+        meta[product.id] = { size: selectedSize, color: selectedColor };
         localStorage.setItem('cart_item_meta', JSON.stringify(meta));
+        
+        alert('Đã thêm sản phẩm vào giỏ hàng!');
+      } else {
+        alert('Không thể thêm sản phẩm. Vui lòng thử lại.');
       }
-      alert('Đã thêm sản phẩm vào giỏ hàng!');
     } catch (e) {
       console.error('Add to cart error:', e?.response?.data || e.message);
       if (e?.response?.status === 401) navigate('/login');
       else alert('Không thể thêm sản phẩm. Vui lòng thử lại.');
+    } finally {
+      setAddingToCart(false);
     }
   };
 
@@ -394,8 +396,9 @@ const ProductDetail = () => {
             </div>
 
             <div className="prod-action-buttons">
-              <button className="prod-add-to-cart-btn" onClick={handleAddToCart}>
+              <button className="prod-add-to-cart-btn" onClick={handleAddToCart} disabled={addingToCart}>
                 <FaShoppingCart />
+                {addingToCart ? 'Đang thêm...' : 'Thêm vào giỏ hàng'}
               </button>
               <button className="prod-buy-now-btn" onClick={handleBuyNow}>
                 Mua Ngay

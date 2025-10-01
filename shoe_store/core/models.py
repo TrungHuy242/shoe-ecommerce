@@ -62,7 +62,6 @@ class Product(models.Model):
     rating = models.FloatField(default=0.0)
     reviews = models.IntegerField(default=0)
     sales_count = models.IntegerField(default=0)
-    created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
 
     def __str__(self):
         return self.name
@@ -159,19 +158,4 @@ class Notification(models.Model):
     related_id = models.IntegerField()  # ID liên quan
     is_read = models.BooleanField(default=False)
     sent_at = models.DateTimeField(auto_now_add=True)
-    created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
-
-class FAQ(models.Model):
-    faq_id = models.AutoField(primary_key=True)
-    question = models.CharField(max_length=1000)
-    answer = models.CharField(max_length=2000)
-    category = models.CharField(max_length=50, null=True, blank=True)
-    created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
-    updated_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
-
-class ChatBotConversation(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)  # Cho phép null
-    message_content = models.TextField()
-    timestamp = models.DateTimeField(auto_now_add=True, blank=True, null=True)
-    is_by_staff = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)

@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../../../services/api';
+import { useCart } from '../../../context/CartContext';
 import { FaTrash, FaMinus, FaPlus, FaShoppingBag, FaArrowLeft, FaTags } from 'react-icons/fa';
 import './Cart.css';
 
@@ -12,6 +13,7 @@ const Cart = () => {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const [selectedIds, setSelectedIds] = useState(new Set());
+  const {fetchCartCount, removeFromCart, updateCartItemQuantity } = useCart();
 
   const fetchCartData = async () => {
     try {
@@ -37,7 +39,7 @@ const Cart = () => {
       // 3) Gộp dữ liệu để hiển thị
       const merged = raw.map((ci, idx) => {
         const p = productDetails[idx];
-        const m = meta[ci.id] || {};
+        const m = meta[ci.product] || {};
         return {
           id: ci.id,                      // id cart-item (dùng update/xóa)
           productId: ci.product,          // id sản phẩm
@@ -71,25 +73,35 @@ const Cart = () => {
   const updateQuantity = async (cartItemId, newQuantity) => {
     if (newQuantity < 1) return;
     try {
-      await api.patch(`cart-items/${cartItemId}/`, { quantity: newQuantity });
+      await updateCartItemQuantity(cartItemId, newQuantity);        // ĐỔI: dùng context
       setCartItems(items =>
         items.map(i => (i.id === cartItemId ? { ...i, quantity: newQuantity } : i))
       );
+      await fetchCartCount();                                        // THÊM: cập nhật badge
     } catch (e) {
       console.error('Update quantity error:', e?.response?.data || e.message);
     }
   };
 
   const removeItem = async (cartItemId) => {
-    try { await api.delete(`cart-items/${cartItemId}/`); } catch {}
-    setCartItems(items => items.filter(i => i.id !== cartItemId));
-    setSelectedIds(prev => { const n = new Set(prev); n.delete(cartItemId); return n; });
-    const metaRaw = localStorage.getItem('cart_item_meta');
-    if (metaRaw) {
-      const meta = JSON.parse(metaRaw);
-      delete meta[cartItemId];
-      localStorage.setItem('cart_item_meta', JSON.stringify(meta));
-    }
+    try {
+      // tìm productId trước khi xóa khỏi state
+      const item = (cartItems || []).find(i => i.id === cartItemId);
+  
+      await removeFromCart(cartItemId);                              // ĐỔI: dùng context để xóa + cập nhật count
+      await fetchCartCount();                                        // THÊM: đảm bảo badge cập nhật ngay
+  
+      setCartItems(items => items.filter(i => i.id !== cartItemId));
+      setSelectedIds(prev => { const n = new Set(prev); n.delete(cartItemId); return n; });
+  
+      const metaRaw = localStorage.getItem('cart_item_meta');
+      if (metaRaw) {
+        const meta = JSON.parse(metaRaw);
+        delete meta[cartItemId];            // legacy
+        if (item?.productId) delete meta[item.productId];
+        localStorage.setItem('cart_item_meta', JSON.stringify(meta));
+      }
+    } catch {}
   };
 
   const applyCoupon = () => {

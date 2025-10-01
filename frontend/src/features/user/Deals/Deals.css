@@ -1,0 +1,23 @@
+.deals-page { max-width: 1100px; margin: 24px auto; padding: 0 16px; }
+.deals-header { display:flex; justify-content:space-between; align-items:center; gap:16px; margin-bottom:16px; }
+.title-wrap { display:flex; align-items:center; gap:8px; }
+.title-wrap h1 { margin:0; font-size:22px; }
+.actions { display:flex; align-items:center; gap:12px; }
+.actions .search input { padding:8px 10px; border:1px solid #e1e1e1; border-radius:8px; }
+.toggle { display:flex; align-items:center; gap:8px; cursor:pointer; }
+.deal-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap:16px; }
+.deal-card { border:1px dashed #ddd; border-radius:12px; background:#fff; overflow:hidden; box-shadow:0 6px 18px rgba(0,0,0,.06); }
+.deal-card.inactive { opacity:.7; filter: grayscale(.15); }
+.deal-head { display:flex; justify-content:space-between; align-items:center; padding:10px 12px; background:#fff7f0; }
+.badge { background:#ff6b35; color:#fff; border-radius:999px; padding:4px 10px; font-weight:700; font-size:12px; display:flex; align-items:center; gap:6px; }
+.time { color:#754c24; display:flex; gap:6px; align-items:center; font-size:12px; }
+.deal-body { padding:12px; display:flex; flex-direction:column; gap:8px; }
+.code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; background:#f7fafc; border:1px dashed #cbd5e0; padding:8px 10px; border-radius:8px; font-weight:800; letter-spacing:1px; text-align:center; }
+.meta { display:flex; justify-content:space-between; color:#666; font-size:12px; }
+.apply { display:flex; gap:8px; }
+.copy-btn { background:#fff; border:1px solid #ddd; border-radius:8px; padding:8px 10px; cursor:pointer; display:flex; align-items:center; gap:6px; }
+.view-btn { text-decoration:none; background:#ffedd5; color:#8b5e34; padding:8px 10px; border-radius:8px; border:1px solid #f4d7b6; }
+.mini-note { font-size:12px; color:#6b7280; }
+.deals-loading, .deals-empty { text-align:center; padding:24px; color:#666; }
+@media (max-width: 480px) { .meta { flex-direction:column; gap:4px; } .actions { flex-direction:column; align-items:flex-start; } }
+

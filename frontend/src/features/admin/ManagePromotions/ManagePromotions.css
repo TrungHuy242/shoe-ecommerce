@@ -1,0 +1,26 @@
+.manage-promos { padding:16px; }
+.manage-promos .header { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; }
+.manage-promos .actions { display:flex; gap:8px; align-items:center; }
+.manage-promos .search { display:flex; gap:6px; align-items:center; border:1px solid #e5e7eb; padding:6px 8px; border-radius:8px; }
+.manage-promos .search input { border:none; outline:none; }
+.manage-promos .primary { background:#111827; color:#fff; border:none; border-radius:8px; padding:8px 12px; cursor:pointer; }
+.manage-promos .grid { display:grid; grid-template-columns: 1.2fr 1fr; gap:16px; }
+.list { display:flex; flex-direction:column; gap:10px; }
+.promo-item { border:1px solid #e5e7eb; border-radius:10px; padding:10px; background:#fff; }
+.promo-item.active { border-color:#111827; box-shadow:0 0 0 2px rgba(17,24,39,.1); }
+.promo-item .meta { display:flex; justify-content:space-between; align-items:center; }
+.promo-item .code { font-weight:800; font-size:14px; }
+.promo-item .percent { background:#fde68a; color:#92400e; padding:4px 8px; border-radius:999px; font-weight:700; font-size:12px; }
+.promo-item .dates { display:flex; justify-content:space-between; color:#6b7280; font-size:12px; margin-top:6px; }
+.promo-item .row-actions { display:flex; gap:8px; margin-top:8px; }
+.promo-item .row-actions button { border:1px solid #e5e7eb; background:#fff; border-radius:8px; padding:6px 8px; cursor:pointer; }
+.promo-item .row-actions .danger { border-color:#ef4444; color:#ef4444; }
+.editor { border:1px solid #e5e7eb; border-radius:10px; padding:12px; background:#fff; }
+.form { display:flex; flex-direction:column; gap:10px; }
+.form-row { display:flex; flex-direction:column; gap:4px; }
+.form-row.two { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.form-row input, .attach select { padding:8px; border:1px solid #e5e7eb; border-radius:8px; }
+.form-actions { display:flex; gap:8px; }
+.loading, .empty { padding:16px; color:#6b7280; }
+@media (max-width: 900px) { .manage-promos .grid { grid-template-columns: 1fr; } }
+
