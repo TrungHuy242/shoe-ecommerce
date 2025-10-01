@@ -40,19 +40,19 @@ const ManageProducts = () => {
     setLoading(true);
     try {
       const [productsRes, categoriesRes, gendersRes, brandsRes, sizesRes, colorsRes] = await Promise.all([
-        api.get('/products/?include=category,gender,brand,sizes,colors,images'),
-        api.get('/categories/'),
-        api.get('/genders/'),
-        api.get('/brands/'),
-        api.get('/sizes/'),
-        api.get('/colors/'),
+        api.get('/products/', { params: { page_size: 1000 } }),
+        api.get('/categories/', { params: { page_size: 1000 } }),
+        api.get('/genders/', { params: { page_size: 1000 } }),
+        api.get('/brands/', { params: { page_size: 1000 } }),
+        api.get('/sizes/', { params: { page_size: 1000 } }),
+        api.get('/colors/', { params: { page_size: 1000 } }),
       ]);
-      setProducts(productsRes.data.results || []);
-      setCategories(categoriesRes.data.results || []);
-      setGenders(gendersRes.data.results || []);
-      setBrands(brandsRes.data.results || []);
-      setSizes(sizesRes.data.results || []);
-      setColors(colorsRes.data.results || []);
+      setProducts((Array.isArray(productsRes.data) ? productsRes.data : (productsRes.data.results || [])));
+      setCategories(Array.isArray(categoriesRes.data) ? categoriesRes.data : (categoriesRes.data.results || []));
+      setGenders(Array.isArray(gendersRes.data) ? gendersRes.data : (gendersRes.data.results || []));
+      setBrands(Array.isArray(brandsRes.data) ? brandsRes.data : (brandsRes.data.results || []));
+      setSizes(Array.isArray(sizesRes.data) ? sizesRes.data : (sizesRes.data.results || []));
+      setColors(Array.isArray(colorsRes.data) ? colorsRes.data : (colorsRes.data.results || []));
       console.log('Products data:', productsRes.data.results); // Debug
     } catch (err) {
       setError('Không thể tải dữ liệu. Vui lòng thử lại.');

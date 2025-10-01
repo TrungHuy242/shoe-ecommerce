@@ -539,6 +539,11 @@ class ProductViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         queryset = super().get_queryset()
+        # support excluding a specific id from listing (used by related products)
+        exclude_id = self.request.query_params.get('exclude')
+        if exclude_id and str(exclude_id).isdigit():
+            queryset = queryset.exclude(id=int(exclude_id))
+
         sort = self.request.query_params.get('sort', '')
         if sort == 'price-asc':
             queryset = queryset.order_by('price')
@@ -546,7 +551,6 @@ class ProductViewSet(viewsets.ModelViewSet):
             queryset = queryset.order_by('-price')
         elif sort == 'newest':
             queryset = queryset.order_by('-id')  # Sắp xếp theo ID giảm dần (mới nhất)
-        print(f"Filtered queryset: {list(queryset.values('id', 'name', 'category__name', 'gender__name', 'brand__name'))}")
         return queryset
 
     def perform_create(self, serializer):

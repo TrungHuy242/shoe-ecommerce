@@ -17,7 +17,7 @@ Including another URLconf
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from core.views import ProductViewSet, CategoryViewSet, BrandViewSet, BannerViewSet, ImageViewSet, ProductPromotionViewSet, PromotionViewSet, CartItemViewSet, CartViewSet, OrderViewSet, OrderDetailViewSet ,PaymentViewSet, WishlistViewSet, NotificationViewSet, CustomTokenObtainPairView,RegisterView, SizeViewSet, ColorViewSet, GenderViewSet, UserViewSet
-from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+from rest_framework_simplejwt.views import TokenRefreshView
 from django.conf import settings
 from django.conf.urls.static import static
 from rest_framework.decorators import api_view, permission_classes
@@ -64,7 +64,6 @@ router.register(r'users', UserViewSet)
 
 urlpatterns = [
     path('api/', include(router.urls)),
-    path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     # Chatbot endpoints removed
     path('api/token/', CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),

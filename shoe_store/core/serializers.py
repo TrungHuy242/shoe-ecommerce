@@ -132,8 +132,16 @@ class ChatBotConversationSerializer(serializers.ModelSerializer):
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     def validate(self, attrs):
         data = super().validate(attrs)
-        data['role'] = self.user.customer.role if hasattr(self.user, 'customer') else 0
+        # Ensure FE can recognize role and user profile fields directly from token call
+        try:
+            data['role'] = getattr(self.user, 'role', 0) or 0
+        except Exception:
+            data['role'] = 0
         data['user_id'] = self.user.id
+        # convenient fields
+        data['username'] = self.user.username
+        data['name'] = getattr(self.user, 'name', '')
+        data['email'] = getattr(self.user, 'email', '')
         return data
 
 

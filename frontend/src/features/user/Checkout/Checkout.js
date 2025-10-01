@@ -62,7 +62,6 @@ const Checkout = () => {
   const [cartItems, setCartItems] = useState(buyNowItems || []);
   const [loadingCart, setLoadingCart] = useState(!buyNowItems);
   const [qrOrderId, setQrOrderId] = useState(null);
-  const [qrPolling, setQrPolling] = useState(false);
   const [transferContent, setTransferContent] = useState('');
 
   // Thêm state để kiểm soát loading khi xác nhận thanh toán
@@ -98,10 +97,9 @@ const Checkout = () => {
       return;
     }
     const loadCart = async () => {
-      let itemsRes = null; // Khai báo biến itemsRes ở đây
       try {
         setLoadingCart(true);
-        itemsRes = await api.get('cart-items/');
+        const itemsRes = await api.get('cart-items/');
         const raw = Array.isArray(itemsRes.data) ? itemsRes.data : (itemsRes.data.results || []);
         const productDetails = await Promise.all(
           raw.map(ci => api.get(`products/${ci.product}/`).then(r => r.data).catch(() => null))
@@ -116,8 +114,9 @@ const Checkout = () => {
             name: p?.name || 'Sản phẩm',
             price: Number(p?.price || 0),
             quantity: ci.quantity || 1,
-            size: meta[ci.id]?.size || '',
-            color: meta[ci.id]?.color || '',
+            // meta in ProductDetail uses productId as key, not cart-item id
+            size: meta[ci.product]?.size || '',
+            color: meta[ci.product]?.color || '',
             image: (p?.images && p.images[0]?.image) || p?.image || '/assets/images/products/giày.jpg'
           };
           return item;
@@ -247,29 +246,7 @@ const Checkout = () => {
     }
   };
 
-  // Thêm hàm xử lý khi user click "Tôi đã thanh toán"
-  const handleConfirmPayment = async () => {
-    console.log('handelConfirmPayment called');
-    if (!qrOrderId) return;
-    try {
-      setConfirmingPayment(true);
-      await createOrUpdateQrPayment(qrOrderId, `QR_${qrOrderId}`);
-      await api.patch(`orders/${qrOrderId}/`, { payment_status: 'paid' });
-
-      navigate('/order-success', {
-        state: {
-          orderNumber: 'FT' + qrOrderId,
-          total,
-          items: cartItems
-        }
-      });
-    } catch (error) {
-      console.error('Error confirming payment:', error);
-      alert('Có lỗi xảy ra khi xác nhận thanh toán. Vui lòng thử lại!');
-    } finally {
-      setConfirmingPayment(false);
-    }
-  };
+  // For student project, we skip QR polling and simulate via order success after placeOrder
 
   const vietQrUrl = buildVietQrImageUrl({ amount: total, addInfo: transferContent });
   return (
@@ -467,19 +444,7 @@ const Checkout = () => {
                         );
                       })()}
                     </div>
-                    {/* Thêm nút xác nhận vào phần hiển thị QR code */}
-                    {qrOrderId && (
-                      <div style={{ marginTop: '20px', textAlign: 'center' }}>
-                        <button
-                          type="button"
-                          className="chk-btn-secondary"
-                          onClick={handleConfirmPayment}
-                          disabled={confirmingPayment}
-                        >
-                          {confirmingPayment ? 'Đang xác nhận...' : 'Tôi đã thanh toán'}
-                        </button>
-                      </div>
-                    )}
+                    {/* Nút xác nhận thủ công đã được lược bỏ để flow gọn hơn */}
                   </div>
                 )}
 

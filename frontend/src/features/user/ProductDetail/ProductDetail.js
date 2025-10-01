@@ -70,10 +70,12 @@ const ProductDetail = () => {
         setCurrentImageIndex(0);
 
         // Fetch related products
+        // Fetch related products by category id and exclude current id
         const relatedResponse = await api.get('products/', { 
-          params: { category__name: productData.category?.name, exclude: id } 
+          params: { category: productData.category, exclude: id, page_size: 6 } 
         });
-        setRelatedProducts(relatedResponse.data.results.slice(0, 3) || []);
+        const relatedList = Array.isArray(relatedResponse.data) ? relatedResponse.data : (relatedResponse.data.results || []);
+        setRelatedProducts(relatedList.slice(0, 3));
 
         // Store sizes and colors for reference
         setSizes(sizesData);
