@@ -30,7 +30,16 @@ from django.utils import timezone
 from datetime import datetime, timedelta
 from django_filters import rest_framework as django_filters
 
-# Chatbot functionality removed
+# Health check for demo deployment
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def health_check(request):
+    """Simple health check endpoint for demo"""
+    return Response({
+        'status': 'healthy',
+        'message': 'Shoe Store API is running',
+        'timestamp': timezone.now()
+    })
 
 # Create your views here
 class UserViewSet(viewsets.ModelViewSet):
