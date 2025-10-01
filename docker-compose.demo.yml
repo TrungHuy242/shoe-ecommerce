@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+  # Backend API
+  backend:
+    build: 
+      context: ./shoe_store
+      dockerfile: Dockerfile.demo
+    container_name: shoe_store_backend_demo
+    restart: unless-stopped
+    environment:
+      - DJANGO_SETTINGS_MODULE=shoe_store.settings_demo
+      - DEBUG=True
+    volumes:
+      - ./shoe_store/media:/app/media
+      - ./shoe_store/demo_db.sqlite3:/app/demo_db.sqlite3
+    ports:
+      - "8000:8000"
+    command: >
+      sh -c "python manage.py migrate &&
+             python setup_demo_data.py &&
+             python manage.py collectstatic --noinput &&
+             gunicorn --bind 0.0.0.0:8000 shoe_store.wsgi:application"
+
+  # Frontend
+  frontend:
+    build: 
+      context: ./frontend
+      dockerfile: Dockerfile.demo
+    container_name: shoe_store_frontend_demo
+    restart: unless-stopped
+    environment:
+      - REACT_APP_API_URL=http://localhost:8000
+      - REACT_APP_ENVIRONMENT=demo
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
