@@ -146,3 +146,48 @@
     }
   }
   
+.order-detail-promotion-code {
+  background: #e8f5e8;
+  color: #2e7d32;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 600;
+}
+
+.order-detail-total-section {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 2px solid #e5e7eb;
+}
+
+.order-detail-summary-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.order-detail-discount {
+  color: #dc2626;
+  font-weight: 600;
+}
+
+.order-detail-total-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 0;
+  border-top: 2px solid #374151;
+  margin-top: 0.5rem;
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: #1f2937;
+}
+
+.order-detail-product-info div:last-child {
+  font-weight: 600;
+  color: #1f2937;
+  margin-top: 0.25rem;
+}
+  

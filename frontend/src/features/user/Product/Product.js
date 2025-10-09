@@ -1,10 +1,12 @@
 // frontend/src/features/user/Product/Product.js
 import { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../../../services/api';
 import './Product.css';
 import { FaHeart, FaStar, FaShoppingCart } from "react-icons/fa";
 import { useAuth } from '../../../context/AuthContext';
+import SkeletonLoader from '../../../components/common/SkeletonLoader';
+import LazyImage from '../../../components/common/LazyImage';
 
 const Product = () => {
   const [products, setProducts] = useState([]);
@@ -15,6 +17,7 @@ const Product = () => {
   const [brands, setBrands] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [searchParams, setSearchParams] = useSearchParams();
   const [filters, setFilters] = useState({
     category: '',
     gender: '',
@@ -22,13 +25,22 @@ const Product = () => {
     color: '',
     brand: '',
     priceRange: '',
+    priceMin: '',
+    priceMax: '',
     sort: '',
+    search: '',
   });
 
   // Wishlist map productId -> wishlistId
   const [wishlistMap, setWishlistMap] = useState({});
   const { isLoggedIn } = useAuth();
   const navigate = useNavigate();
+
+  // Initialize filters from URL params
+  useEffect(() => {
+    const search = searchParams.get('search') || '';
+    setFilters(prev => ({ ...prev, search }));
+  }, [searchParams]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -82,6 +94,8 @@ const Product = () => {
 
   const transformFilters = (filters) => {
     const transformed = { ...filters };
+    
+    // Handle price range
     if (transformed.priceRange) {
       const [min, max] = transformed.priceRange.split('-');
       if (min && max === '+') {
@@ -94,11 +108,23 @@ const Product = () => {
       }
       delete transformed.priceRange;
     }
+    
+    // Handle custom price range
+    if (transformed.priceMin) {
+      transformed.price__gte = parseInt(transformed.priceMin);
+    }
+    if (transformed.priceMax) {
+      transformed.price__lte = parseInt(transformed.priceMax);
+    }
+    
+    // Transform other filters
     if (transformed.size) transformed.sizes__value = transformed.size;
     if (transformed.color) transformed.colors__value = transformed.color;
     if (transformed.category) transformed.category__name = transformed.category;
     if (transformed.gender) transformed.gender__name = transformed.gender;
     if (transformed.brand) transformed.brand__name = transformed.brand;
+    
+    // Handle sorting
     if (transformed.sort !== undefined) {
       let ordering;
       switch (transformed.sort) {
@@ -106,14 +132,18 @@ const Product = () => {
         case 'price-asc': ordering = 'price'; break;
         case 'price-desc': ordering = '-price'; break;
         case 'newest': ordering = '-created_at'; break;
+        case 'rating': ordering = '-rating'; break;
         default: ordering = undefined;
       }
       if (ordering) transformed.ordering = ordering;
       delete transformed.sort;
     }
+    
+    // Clean up empty values
     Object.keys(transformed).forEach(key => {
       if (transformed[key] === '' || transformed[key] === undefined) delete transformed[key];
     });
+    
     return transformed;
   };
 
@@ -123,6 +153,50 @@ const Product = () => {
       ...prev,
       [name]: value === prev[name] ? '' : value,
     }));
+  };
+
+  const handlePriceRangeChange = (e) => {
+    const { name, value } = e.target;
+    setFilters((prev) => ({
+      ...prev,
+      [name]: value,
+      priceRange: '', // Clear preset price range when using custom
+    }));
+  };
+
+  const clearAllFilters = () => {
+    const currentSearch = filters.search; // Giữ lại search term hiện tại
+    
+    setFilters({
+      category: '',
+      gender: '',
+      size: '',
+      color: '',
+      brand: '',
+      priceRange: '',
+      priceMin: '',
+      priceMax: '',
+      sort: '',
+      search: currentSearch, // Giữ lại search term
+    });
+    
+    // Chỉ xóa filter params, giữ lại search param
+    const newParams = new URLSearchParams();
+    if (currentSearch) {
+      newParams.set('search', currentSearch);
+    }
+    setSearchParams(newParams);
+  };
+
+  const getActiveFiltersCount = () => {
+    let count = 0;
+    if (filters.category) count++;
+    if (filters.gender) count++;
+    if (filters.size) count++;
+    if (filters.color) count++;
+    if (filters.brand) count++;
+    if (filters.priceRange || filters.priceMin || filters.priceMax) count++;
+    return count;
   };
 
   const getCurrentUserId = () => {
@@ -164,7 +238,40 @@ const Product = () => {
     }
   };
 
-  if (loading) return <div className="loading">Đang tải...</div>;
+  if (loading) {
+    return (
+      <div className="product-page">
+        <div className="product-container">
+          {/* Header Skeleton */}
+          <div className="page-header">
+            <div className="skeleton-title" style={{width: '300px', height: '32px'}}></div>
+            <div className="skeleton-text" style={{width: '500px', height: '20px'}}></div>
+          </div>
+
+          <div className="product-content">
+            {/* Sidebar Skeleton */}
+            <div className="product-sidebar">
+              <div className="filter-header">
+                <div className="skeleton-title" style={{width: '150px', height: '24px'}}></div>
+              </div>
+              <SkeletonLoader type="card" count={5} />
+            </div>
+
+            {/* Main Content Skeleton */}
+            <div className="main-content">
+              <div className="sort-control">
+                <div className="skeleton-text" style={{width: '100px', height: '20px'}}></div>
+                <div className="skeleton-default" style={{width: '150px', height: '40px'}}></div>
+              </div>
+              <div className="products-grid-container">
+                <SkeletonLoader type="card" count={12} />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
   if (error) return <div className="error">{error}</div>;
 
   return (
@@ -176,13 +283,38 @@ const Product = () => {
           <span>Sản phẩm</span>
         </div>
         <div className="page-header">
-          <h1>Tất cả sản phẩm</h1>
-          <p>Khám phá bộ sưu tập giày cao cấp: sneaker, oxford, cao gót, sandal và nhiều lựa chọn khác.</p>
+          <h1>
+            {filters.search ? `Kết quả tìm kiếm cho "${filters.search}"` : 'Tất cả sản phẩm'}
+          </h1>
+          <p>
+            {filters.search 
+              ? `Tìm thấy ${products.length} sản phẩm phù hợp với từ khóa "${filters.search}"`
+              : 'Khám phá bộ sưu tập giày cao cấp: sneaker, oxford, cao gót, sandal và nhiều lựa chọn khác.'
+            }
+          </p>
         </div>
       </div>
 
       <div className="product-container">
         <div className="sidebar">
+          {/* Filter Header */}
+          <div className="filter-header">
+            <h3>Bộ lọc</h3>
+            {getActiveFiltersCount() > 0 && (
+              <div className="filter-summary">
+                <span className="active-filters-count">
+                  {getActiveFiltersCount()} bộ lọc đang áp dụng
+                </span>
+                <button 
+                  className="clear-filters-btn-small"
+                  onClick={clearAllFilters}
+                >
+                  Xóa tất cả
+                </button>
+              </div>
+            )}
+          </div>
+
           <div className="filter-section">
             <h3>Loại sản phẩm</h3>
             <div className="filter-options">
@@ -299,20 +431,21 @@ const Product = () => {
           <div className="filter-section">
             <h3>Khoảng giá</h3>
             <div className="price-range">
-              <label className={filters.priceRange === '' ? "active" : ""}>
+              <label className={filters.priceRange === '' && !filters.priceMin && !filters.priceMax ? "active" : ""}>
                 <input
                   type="radio"
                   name="priceRange"
                   value=""
                   onChange={handleFilterChange}
-                  checked={filters.priceRange === ''}
+                  checked={filters.priceRange === '' && !filters.priceMin && !filters.priceMax}
                 />
                 Tất cả
               </label>
               {[
                 { value: "0-999999", label: "Dưới 1.000.000đ" },
                 { value: "1000000-2000000", label: "1.000.000 - 2.000.000đ" },
-                { value: "2000000+", label: "Trên 2.000.000đ" },
+                { value: "2000000-3000000", label: "2.000.000 - 3.000.000đ" },
+                { value: "3000000+", label: "Trên 3.000.000đ" },
               ].map((price) => (
                 <label
                   key={price.value}
@@ -328,6 +461,35 @@ const Product = () => {
                   {price.label}
                 </label>
               ))}
+            </div>
+            
+            {/* Custom Price Range */}
+            <div className="custom-price-range">
+              <h4>Hoặc nhập khoảng giá tùy chỉnh</h4>
+              <div className="price-inputs">
+                <div className="price-input-group">
+                  <label>Từ (đ)</label>
+                  <input
+                    type="number"
+                    name="priceMin"
+                    value={filters.priceMin}
+                    onChange={handlePriceRangeChange}
+                    placeholder="0"
+                    min="0"
+                  />
+                </div>
+                <div className="price-input-group">
+                  <label>Đến (đ)</label>
+                  <input
+                    type="number"
+                    name="priceMax"
+                    value={filters.priceMax}
+                    onChange={handlePriceRangeChange}
+                    placeholder="Không giới hạn"
+                    min="0"
+                  />
+                </div>
+              </div>
             </div>
           </div>
 
@@ -372,6 +534,7 @@ const Product = () => {
                 <option value="price-asc">Giá tăng dần</option>
                 <option value="price-desc">Giá giảm dần</option>
                 <option value="newest">Mới nhất</option>
+                <option value="rating">Đánh giá cao nhất</option>
               </select>
               <span className="arrow">▼</span>
             </div>
@@ -382,10 +545,10 @@ const Product = () => {
               <div key={product.id} className="product-card-container">
                 <Link to={`/product/${product.id}`} className="product-link-container">
                   <div className="product-image-container">
-                    <img
+                    <LazyImage
                       src={product.images && product.images.length > 0 ? product.images[0].image : "https://via.placeholder.com/300x300?text=Product"}
                       alt={product.name}
-                      onError={(e) => { e.target.src = "https://via.placeholder.com/300x300?text=Product"; }}
+                      className="product-image"
                     />
                     <button
                       className={`product-heart ${wishlistMap[product.id] ? 'liked' : ''}`}
@@ -424,7 +587,41 @@ const Product = () => {
 
           {products.length === 0 && (
             <div className="no-products">
-              <p>Không có sản phẩm nào.</p>
+              {filters.search ? (
+                <div className="search-no-results">
+                  <h3>Không tìm thấy sản phẩm nào</h3>
+                  <p>Không có sản phẩm nào phù hợp với từ khóa "{filters.search}"</p>
+                  <div className="search-suggestions">
+                    <p>Gợi ý:</p>
+                    <ul>
+                      <li>Kiểm tra lại chính tả</li>
+                      <li>Thử từ khóa khác</li>
+                      <li>Sử dụng từ khóa chung hơn</li>
+                      <li>Xóa bộ lọc để xem tất cả sản phẩm</li>
+                    </ul>
+                    <button 
+                      className="clear-filters-btn"
+                      onClick={() => {
+                        setFilters({
+                          category: '',
+                          gender: '',
+                          size: '',
+                          color: '',
+                          brand: '',
+                          priceRange: '',
+                          sort: '',
+                          search: '',
+                        });
+                        setSearchParams({});
+                      }}
+                    >
+                      Xóa tất cả bộ lọc
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <p>Không có sản phẩm nào.</p>
+              )}
             </div>
           )}
         </div>

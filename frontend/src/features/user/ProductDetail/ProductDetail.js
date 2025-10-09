@@ -13,6 +13,7 @@ import {
   FaPlus,
   FaChevronRight
 } from 'react-icons/fa';
+import Review from '../../../components/Review/Review';
 import './ProductDetail.css';
 
 const ProductDetail = () => {
@@ -35,8 +36,7 @@ const ProductDetail = () => {
   const { addToCart } = useCart();
   const vnd = new Intl.NumberFormat('vi-VN'); // format VND
 
-  useEffect(() => {
-    const fetchProductData = async () => {
+  const fetchProductData = async () => {
       try {
         setLoading(true);
         // Fetch product, sizes, and colors concurrently
@@ -92,7 +92,9 @@ const ProductDetail = () => {
       } finally {
         setLoading(false);
       }
-    };
+  };
+
+  useEffect(() => {
     fetchProductData();
   }, [id]);
 
@@ -210,21 +212,27 @@ const ProductDetail = () => {
     if (!userId) { navigate('/login'); return; }
 
     try {
-      navigate('/checkout', {
-        state: {
-          buyNow: true,
-          items: [{
-            id: Date.now(),
-            productId: product.id,
-            name: product.name,
-            price: Number(product.price || 0),
-            quantity,
-            size: selectedSize,
-            color: selectedColor,
-            image: (product.images && product.images[0]?.image) || '/assets/images/products/placeholder-product.jpg'
-          }]
-        }
-      });
+      // Thêm sản phẩm vào giỏ hàng trước
+      const success = await addToCart(product.id, quantity);
+      
+      if (success) {
+        // Lưu meta size/color vào localStorage
+        const metaRaw = localStorage.getItem('cart_item_meta');
+        const meta = metaRaw ? JSON.parse(metaRaw) : {};
+        meta[product.id] = { size: selectedSize, color: selectedColor };
+        localStorage.setItem('cart_item_meta', JSON.stringify(meta));
+        
+        // Lưu thông tin sản phẩm "mua ngay" để trang Cart biết cần chọn sản phẩm nào
+        localStorage.setItem('buy_now_product', JSON.stringify({
+          productId: product.id,
+          timestamp: Date.now()
+        }));
+        
+        // Chuyển đến trang giỏ hàng
+        navigate('/cart');
+      } else {
+        alert('Không thể thêm sản phẩm. Vui lòng thử lại.');
+      }
     } catch (e) {
       console.error('Buy now error:', e?.response?.data || e.message);
       if (e?.response?.status === 401) navigate('/login');
@@ -490,6 +498,12 @@ const ProductDetail = () => {
           </div>
         </div>
       </div>
+
+      {/* Review Section */}
+      <Review productId={id} onReviewAdded={() => {
+        // Refresh product data to update rating
+        fetchProductData();
+      }} />
     </div>
   );
 };

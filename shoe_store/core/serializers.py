@@ -1,7 +1,17 @@
 # core/serializers.py
 from rest_framework import serializers
-from .models import Product, Category, Brand, Image, Banner, Promotion, ProductPromotion, Cart, CartItem, Order, OrderDetail, Payment, Wishlist, Notification, Size, Color, Gender, User
+from .models import Product, Category, Brand, Image, Banner, Promotion, ProductPromotion, Cart, CartItem, Order, OrderDetail, Payment, Wishlist, Notification, Size, Color, Gender, User, Review
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from django.db.models import Avg, Count
+
+def get_product_rating(product_id):
+    """Lấy rating trung bình từ bảng Review"""
+    avg_rating = Review.objects.filter(product_id=product_id).aggregate(avg=Avg('rating'))['avg']
+    return round(avg_rating, 1) if avg_rating else 0.0
+
+def get_product_reviews_count(product_id):
+    """Lấy số lượng reviews từ bảng Review"""
+    return Review.objects.filter(product_id=product_id).count()
 
 class CategorySerializer(serializers.ModelSerializer):
     class Meta:
@@ -43,10 +53,18 @@ class ProductSerializer(serializers.ModelSerializer):
     gender = serializers.PrimaryKeyRelatedField(queryset=Gender.objects.all())
     brand = serializers.PrimaryKeyRelatedField(queryset=Brand.objects.all())
     images = ImageSerializer(many=True, read_only=True)
+    rating = serializers.SerializerMethodField()
+    reviews = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
         fields = '__all__'
+    
+    def get_rating(self, obj):
+        return get_product_rating(obj.id)
+    
+    def get_reviews(self, obj):
+        return get_product_reviews_count(obj.id)
 
 
 class BannerSerializer(serializers.ModelSerializer):
@@ -151,3 +169,12 @@ class ProductAvailabilitySerializer(serializers.Serializer):
 
 class OrderStatusSerializer(serializers.Serializer):
     code = serializers.CharField(required=True, allow_blank=False)
+
+class ReviewSerializer(serializers.ModelSerializer):
+    user_name = serializers.CharField(source='user.name', read_only=True)
+    user_username = serializers.CharField(source='user.username', read_only=True)
+    
+    class Meta:
+        model = Review
+        fields = ['id', 'product', 'user', 'user_name', 'user_username', 'rating', 'title', 'comment', 'created_at', 'updated_at']
+        read_only_fields = ['user', 'created_at', 'updated_at']

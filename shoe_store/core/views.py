@@ -8,8 +8,8 @@ from rest_framework.response import Response
 from rest_framework_simplejwt.views import TokenObtainPairView
 from django.conf import settings
 from urllib3 import response
-from .models import Product, Category, Brand, Image, Banner, Promotion, ProductPromotion, User, Cart, CartItem, Order, OrderDetail, Payment, Wishlist, Notification, Size, Color, Gender
-from .serializers import ProductSerializer, CategorySerializer, BrandSerializer, ImageSerializer, BannerSerializer, PromotionSerializer, ProductPromotionSerializer, UserSerializer, CartSerializer, CartItemSerializer, OrderSerializer, OrderDetailSerializer, PaymentSerializer, WishlistSerializer, NotificationSerializer, CustomTokenObtainPairSerializer, SizeSerializer, ColorSerializer, GenderSerializer, ProductAvailabilitySerializer, OrderStatusSerializer
+from .models import Product, Category, Brand, Image, Banner, Promotion, ProductPromotion, User, Cart, CartItem, Order, OrderDetail, Payment, Wishlist, Notification, Size, Color, Gender, Review
+from .serializers import ProductSerializer, CategorySerializer, BrandSerializer, ImageSerializer, BannerSerializer, PromotionSerializer, ProductPromotionSerializer, UserSerializer, CartSerializer, CartItemSerializer, OrderSerializer, OrderDetailSerializer, PaymentSerializer, WishlistSerializer, NotificationSerializer, CustomTokenObtainPairSerializer, SizeSerializer, ColorSerializer, GenderSerializer, ProductAvailabilitySerializer, OrderStatusSerializer, ReviewSerializer
 from .permissions import IsAdminOrReadOnly, IsCustomerOrAdmin
 from rest_framework import status
 from rest_framework.decorators import action ,api_view, permission_classes
@@ -29,6 +29,8 @@ from django.db.models import Count
 from django.utils import timezone
 from datetime import datetime, timedelta
 from django_filters import rest_framework as django_filters
+from decimal import Decimal
+from rest_framework.pagination import PageNumberPagination
 
 # Chatbot functionality removed
 
@@ -102,26 +104,95 @@ class CartItemViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         return CartItem.objects.filter(cart__user=self.request.user)
 
+class OrderPagination(PageNumberPagination):
+    page_size = 5
+    page_size_query_param = 'page_size'
+    max_page_size = 100
+
 class OrderViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     queryset = Order.objects.all()
     serializer_class = OrderSerializer
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    filterset_fields = ['user', 'status', 'payment_method']  # Thay 'customer' bằng 'user'
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['user', 'status', 'payment_method']
     search_fields = ['id']
+    ordering_fields = ['created_at', 'updated_at', 'total']
+    ordering = ['-created_at']
+    pagination_class = OrderPagination
+
+    def get_queryset(self):
+        """
+        Filter orders:
+        - Admin (role=1): Xem tất cả orders
+        - Customer (role=0): Chỉ xem orders của mình
+        """
+        user = self.request.user
+        
+        # Kiểm tra nếu user là admin (role=1)
+        if hasattr(user, 'role') and user.role == 1:
+            # Admin xem tất cả orders
+            queryset = Order.objects.all().order_by('-created_at')
+            print(f"🔍 Admin {user.username} - Total orders: {queryset.count()}")
+            return queryset
+        else:
+            # Customer chỉ xem orders của mình
+            queryset = Order.objects.filter(user=user).order_by('-created_at')
+            print(f"🔍 Customer {user.username} - User orders: {queryset.count()}")
+            return queryset
 
     def perform_create(self, serializer):
-        order = serializer.save(user=self.request.user)  # Gán user hiện tại
-        order.total = sum(detail.unit_price * detail.quantity for detail in order.orderdetail_set.all())
-        order.save()
+        # Chỉ lưu order, KHÔNG tính lại total nếu frontend đã gửi
+        order = serializer.save(user=self.request.user)
+        
+        # Chỉ tính total nếu frontend chưa gửi hoặc gửi = 0
+        if not order.total and order.subtotal:
+            subtotal = float(order.subtotal or 0)
+            discount = float(order.discount_amount or 0)
+            shipping = float(order.shipping_fee or 0)
+            order.total = subtotal - discount + shipping
+            order.save(update_fields=['total'])
+            print(f"📦 Calculated total for order {order.id}: {order.total}")
+        else:
+            print(f"📦 Order {order.id} created with frontend total: {order.total}")
+
+    def recalculate_total(self, order_id):
+        """Tính lại total của order sau khi có OrderDetail"""
+        try:
+            order = Order.objects.get(id=order_id)
+            
+            # Ưu tiên dùng subtotal, discount, shipping từ frontend
+            if order.subtotal is not None:
+                subtotal = float(order.subtotal or 0)
+                discount = float(order.discount_amount or 0)
+                shipping = float(order.shipping_fee or 0)
+                calculated_total = subtotal - discount + shipping
+            else:
+                # Fallback: tính từ OrderDetail
+                calculated_total = sum(
+                    float(detail.unit_price) * detail.quantity 
+                    for detail in order.orderdetail_set.all()
+                )
+            
+            if order.total != calculated_total:
+                order.total = calculated_total
+                order.save(update_fields=['total'])
+                print(f"💰 Recalculated order {order_id} total: {calculated_total}")
+            
+            return order
+        except Order.DoesNotExist:
+            print(f"❌ Order {order_id} not found for recalculation")
+            return None
     
     @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated])
     def cancel(self, request, pk=None):
         try:
             with transaction.atomic():
                 order = self.get_object()
-                if not (request.user.is_superuser or order.user_id == request.user.id):
+                
+                # Admin có thể hủy bất kỳ đơn nào, customer chỉ hủy đơn của mình
+                if not (request.user.role == 1 or order.user_id == request.user.id):
                     return Response({"detail": "Bạn không có quyền hủy đơn hàng"}, status=status.HTTP_403_FORBIDDEN)
+                    
                 if order.status == 'cancelled':
                     return Response({"detail": "Đơn hàng đã bị hủy"}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -143,8 +214,11 @@ class OrderViewSet(viewsets.ModelViewSet):
         try:
             with transaction.atomic():
                 order = self.get_object()
-                if not (request.user.is_superuser or order.user_id == request.user.id):
+                
+                # Admin có thể confirm bất kỳ đơn nào, customer chỉ confirm đơn của mình
+                if not (request.user.role == 1 or order.user_id == request.user.id):
                     return Response({"detail": "Bạn không có quyền xác nhận đơn hàng"}, status=status.HTTP_403_FORBIDDEN)
+                    
                 if order.status == 'cancelled':
                     return Response({"detail": "Đơn hàng đã bị hủy"}, status=status.HTTP_400_BAD_REQUEST)
                 
@@ -164,7 +238,7 @@ class OrderViewSet(viewsets.ModelViewSet):
                             status = 'paid',
                             gateway_response = "COD confirmed by user"
                         )
-            return Response({'message': 'Xác nhận đã nhận hàng thành công','status': 'delivered'})
+            return Response({'message': 'Xác nhận đã nhận hàng thành công','status': 'delivered'})
         except Exception as e:
             return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
                 
@@ -184,25 +258,35 @@ class OrderDetailViewSet(viewsets.ModelViewSet):
 
                 product = serializer.validated_data['product']
                 qty = int(serializer.validated_data['quantity'])
+                order_id = serializer.validated_data['order'].id
 
-                # khóa dòng sản phẩm để cập nhật an toàn
+                # Khóa dòng sản phẩm để cập nhật an toàn
                 product_locked = Product.objects.select_for_update().get(pk=product.id)
 
                 if product_locked.stock_quantity < qty:
                     return Response({"detail": "Số lượng tồn kho không đủ"}, status=status.HTTP_400_BAD_REQUEST)
 
+                # Tạo OrderDetail
                 self.perform_create(serializer)
 
+                # Cập nhật stock và sales count
                 Product.objects.filter(pk=product_locked.id).update(
                     stock_quantity=F('stock_quantity') - qty,
                     sales_count=F('sales_count') + qty
                 )
 
+                # Tính lại total của order (quan trọng!)
+                from .views import OrderViewSet
+                order_viewset = OrderViewSet()
+                order_viewset.recalculate_total(order_id)
+
                 headers = self.get_success_headers(serializer.data)
                 return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+                
         except Product.DoesNotExist:
             return Response({"detail": "Sản phẩm không tồn tại"}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
+            print(f"❌ OrderDetail create error: {str(e)}")
             return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 class PaymentViewSet(viewsets.ModelViewSet):
@@ -774,3 +858,21 @@ def guardrail_answer(message, user_id=None, request=None):
 
 class UnansweredViewSet(viewsets.ReadOnlyModelViewSet):
     pass
+
+class ReviewViewSet(viewsets.ModelViewSet):
+    queryset = Review.objects.all()
+    serializer_class = ReviewSerializer
+    permission_classes = [IsAuthenticatedOrReadOnly]
+    filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
+    filterset_fields = ['product', 'rating']
+    ordering_fields = ['created_at', 'rating']
+    ordering = ['-created_at']
+    
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+    
+    def perform_update(self, serializer):
+        serializer.save()
+    
+    def perform_destroy(self, instance):
+        instance.delete()

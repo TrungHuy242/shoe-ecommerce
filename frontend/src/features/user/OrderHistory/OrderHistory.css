@@ -595,3 +595,135 @@
     width: 100%;
   }
 }
+
+/* Pagination Styles */
+.oh-pagination {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 2rem;
+  padding: 1rem 0;
+  border-top: 1px solid #e5e7eb;
+}
+
+.oh-pagination-info {
+  color: #6b7280;
+  font-size: 0.875rem;
+}
+
+.oh-pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.oh-pagination-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.5rem;
+  height: 2.5rem;
+  padding: 0.5rem;
+  border: 1px solid #d1d5db;
+  background: white;
+  color: #374151;
+  border-radius: 0.375rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.oh-pagination-btn:hover:not(:disabled) {
+  background: #f3f4f6;
+  border-color: #9ca3af;
+}
+
+.oh-pagination-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: #f9fafb;
+}
+
+.oh-pagination-btn.oh-active {
+  background: #3b82f6;
+  border-color: #3b82f6;
+  color: white;
+}
+
+.oh-pagination-btn.oh-active:hover {
+  background: #2563eb;
+  border-color: #2563eb;
+}
+
+.oh-pagination-numbers {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.oh-pagination-first,
+.oh-pagination-last {
+  font-size: 1rem;
+}
+
+.oh-pagination-prev,
+.oh-pagination-next {
+  font-size: 0.875rem;
+}
+
+/* Responsive pagination */
+@media (max-width: 768px) {
+  .oh-pagination {
+    flex-direction: column;
+    gap: 1rem;
+  }
+  
+  .oh-pagination-controls {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  
+  .oh-pagination-btn {
+    min-width: 2rem;
+    height: 2rem;
+    font-size: 0.75rem;
+  }
+}
+
+/* Update header stats label */
+.oh-header-content .oh-title-section p {
+  color: #6b7280;
+  font-size: 0.875rem;
+  margin: 0;
+}
+
+.oh-order-promotion {
+  background: #e8f5e8;
+  color: #2e7d32;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.oh-order-pricing {
+  text-align: right;
+}
+
+.oh-original-total {
+  font-size: 0.875rem;
+  color: #6b7280;
+  text-decoration: line-through;
+}
+
+.oh-discount {
+  font-size: 0.875rem;
+  color: #dc2626;
+  font-weight: 600;
+}
+
+.oh-final-total {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: #1f2937;
+}

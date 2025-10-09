@@ -27,6 +27,15 @@
   margin: 0 auto 1rem;
 }
 
+.wl-loading-spinner-small {
+  width: 16px;
+  height: 16px;
+  border: 2px solid #e2e8f0;
+  border-top: 2px solid #667eea;
+  border-radius: 50%;
+  animation: wl-spin 1s linear infinite;
+}
+
 @keyframes wl-spin {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
@@ -251,6 +260,22 @@
   box-shadow: 0 15px 35px rgba(0, 0, 0, 0.15);
 }
 
+.wl-item-removing {
+  animation: wl-slideOut 0.3s ease-out forwards;
+  opacity: 0.5;
+}
+
+@keyframes wl-slideOut {
+  0% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+}
+
 .wl-item-checkbox {
   position: absolute;
   top: 1rem;
@@ -388,6 +413,31 @@
 .wl-remove-btn:hover {
   background: #fed7d7;
   border-color: #e53e3e;
+}
+
+.wl-add-to-cart-btn {
+  width: 44px;
+  height: 44px;
+  background: #48bb78;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.wl-add-to-cart-btn:hover:not(:disabled) {
+  background: #38a169;
+  transform: scale(1.05);
+}
+
+.wl-add-to-cart-btn:disabled {
+  background: #a0aec0;
+  cursor: not-allowed;
+  transform: none;
 }
 
 /* Summary */

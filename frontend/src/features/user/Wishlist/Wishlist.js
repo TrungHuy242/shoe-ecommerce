@@ -2,7 +2,9 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../../../services/api';
-import { FaHeart, FaStar, FaTrash,FaSearch } from 'react-icons/fa';
+import { FaHeart, FaStar, FaTrash, FaSearch, FaShoppingCart, FaCheck } from 'react-icons/fa';
+import { useNotification } from '../../../context/NotificationContext';
+import SkeletonLoader from '../../../components/common/SkeletonLoader';
 import './Wishlist.css';
 
 const Wishlist = () => {
@@ -11,7 +13,10 @@ const Wishlist = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState('newest');
   const [selectedItems, setSelectedItems] = useState(new Set());
+  const [removingItems, setRemovingItems] = useState(new Set());
+  const [addingToCart, setAddingToCart] = useState(new Set());
   const navigate = useNavigate();
+  const { success, error } = useNotification();
 
   useEffect(() => {
     const fetchWishlistData = async () => {
@@ -72,18 +77,35 @@ const Wishlist = () => {
   }, [navigate]);
 
   const removeFromWishlist = async (wishlistId) => {
+    setRemovingItems(prev => new Set(prev).add(wishlistId));
+    
     try {
       await api.delete(`wishlists/${wishlistId}/`);
+      
+      // Animation delay before removing from UI
+      setTimeout(() => {
+        setWishlistItems(items => items.filter(item => item.id !== wishlistId));
+        setSelectedItems(prev => {
+          const ns = new Set(prev);
+          ns.delete(wishlistId);
+          return ns;
+        });
+        setRemovingItems(prev => {
+          const next = new Set(prev);
+          next.delete(wishlistId);
+          return next;
+        });
+        success('Đã xóa sản phẩm khỏi danh sách yêu thích!');
+      }, 300);
     } catch (e) {
-      // vẫn xóa ở UI để mượt, log lỗi nếu cần
-      console.warn('Xóa wishlist lỗi (UI vẫn cập nhật):', e?.response?.data || e.message);
+      console.warn('Xóa wishlist lỗi:', e?.response?.data || e.message);
+      error('Có lỗi khi xóa sản phẩm!');
+      setRemovingItems(prev => {
+        const next = new Set(prev);
+        next.delete(wishlistId);
+        return next;
+      });
     }
-    setWishlistItems(items => items.filter(item => item.id !== wishlistId));
-    setSelectedItems(prev => {
-      const ns = new Set(prev);
-      ns.delete(wishlistId);
-      return ns;
-    });
   };
 
   // Thêm các helper dưới phần useNavigate()
@@ -120,6 +142,8 @@ const Wishlist = () => {
 
   // Thay thế hàm addToCart cũ
   const addToCart = async (item) => {
+    setAddingToCart(prev => new Set(prev).add(item.id));
+    
     try {
       const userId = getCurrentUserId();
       if (!userId) {
@@ -128,7 +152,7 @@ const Wishlist = () => {
       }
 
       if (await isProductInCart(item.productId)) {
-        alert('Sản phẩm này đã có trong giỏ hàng.');
+        error('Sản phẩm này đã có trong giỏ hàng.');
         return;
       }
 
@@ -139,11 +163,17 @@ const Wishlist = () => {
         quantity: 1,
       });
 
-      alert(`Đã thêm "${item.name}" vào giỏ hàng!`);
+      success(`Đã thêm "${item.name}" vào giỏ hàng!`);
     } catch (e) {
       console.error('Add to cart error:', e?.response?.data || e.message);
       if (e?.response?.status === 401) navigate('/login');
-      else alert('Không thể thêm vào giỏ hàng. Vui lòng thử lại.');
+      else error('Không thể thêm vào giỏ hàng. Vui lòng thử lại.');
+    } finally {
+      setAddingToCart(prev => {
+        const next = new Set(prev);
+        next.delete(item.id);
+        return next;
+      });
     }
   };
 
@@ -165,7 +195,7 @@ const Wishlist = () => {
       const toAdd = inStockItems.filter(i => !inCartSet.has(i.productId));
 
       if (toAdd.length === 0) {
-        alert('Tất cả sản phẩm còn hàng đã có trong giỏ.');
+        error('Tất cả sản phẩm còn hàng đã có trong giỏ.');
         return;
       }
 
@@ -173,11 +203,11 @@ const Wishlist = () => {
         await api.post('cart-items/', { cart: cartId, product: it.productId, quantity: 1 });
       }
 
-      alert(`Đã thêm ${toAdd.length} sản phẩm vào giỏ hàng!`);
+      success(`Đã thêm ${toAdd.length} sản phẩm vào giỏ hàng!`);
     } catch (e) {
       console.error('Add all to cart error:', e?.response?.data || e.message);
       if (e?.response?.status === 401) navigate('/login');
-      else alert('Không thể thêm tất cả vào giỏ. Vui lòng thử lại.');
+      else error('Không thể thêm tất cả vào giỏ. Vui lòng thử lại.');
     }
   };
 
@@ -226,9 +256,23 @@ const Wishlist = () => {
     return (
       <div className="wl-wishlist-page">
         <div className="wl-wishlist-container">
-          <div className="wl-loading-state">
-            <div className="wl-spinner-large"></div>
-            <p>Đang tải danh sách yêu thích...</p>
+          {/* Header Skeleton */}
+          <div className="wl-wishlist-header">
+            <div className="wl-header-content">
+              <div className="wl-title-section">
+                <div className="skeleton-title" style={{width: '300px', height: '32px'}}></div>
+                <div className="skeleton-text" style={{width: '150px', height: '20px'}}></div>
+              </div>
+            </div>
+            <div className="wl-wishlist-controls">
+              <div className="skeleton-default" style={{width: '300px', height: '40px'}}></div>
+              <div className="skeleton-default" style={{width: '150px', height: '40px'}}></div>
+            </div>
+          </div>
+          
+          {/* Grid Skeleton */}
+          <div className="wl-wishlist-grid">
+            <SkeletonLoader type="card" count={6} />
           </div>
         </div>
       </div>
@@ -322,7 +366,10 @@ const Wishlist = () => {
         ) : (
           <div className="wl-wishlist-grid">
             {filteredItems.map(item => (
-              <div key={item.id} className="wl-wishlist-item">
+              <div 
+                key={item.id} 
+                className={`wl-wishlist-item ${removingItems.has(item.id) ? 'wl-item-removing' : ''}`}
+              >
                 <div className="wl-item-checkbox">
                   <input
                     type="checkbox"
@@ -364,11 +411,29 @@ const Wishlist = () => {
 
                   <div className="wl-item-actions">
                     <button
+                      className="wl-add-to-cart-btn"
+                      onClick={() => addToCart(item)}
+                      disabled={!item.inStock || addingToCart.has(item.id)}
+                      title="Thêm vào giỏ hàng"
+                    >
+                      {addingToCart.has(item.id) ? (
+                        <div className="wl-loading-spinner-small"></div>
+                      ) : (
+                        <FaShoppingCart />
+                      )}
+                    </button>
+                    
+                    <button
                       className="wl-remove-btn"
                       onClick={() => removeFromWishlist(item.id)}
+                      disabled={removingItems.has(item.id)}
                       title="Xóa khỏi danh sách yêu thích"
                     >
-                      <FaTrash />
+                      {removingItems.has(item.id) ? (
+                        <div className="wl-loading-spinner-small"></div>
+                      ) : (
+                        <FaTrash />
+                      )}
                     </button>
                   </div>
                 </div>

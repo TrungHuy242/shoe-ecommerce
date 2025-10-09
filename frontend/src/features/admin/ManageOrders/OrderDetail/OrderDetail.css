@@ -184,3 +184,49 @@
   font-weight: 600;
   color: #111827;
 }
+
+.od-status-processing { color: #f7931e; }
+.od-status-shipping { color: #667eea; }
+.od-status-delivered { color: #38a169; }
+.od-status-cancelled { color: #e53e3e; }
+
+.od-payment-pending { color: #f7931e; }
+.od-payment-processing { color: #3182ce; }
+.od-payment-paid { color: #38a169; }
+.od-payment-refunded { color: #667eea; }
+.od-payment-failed { color: #e53e3e; }
+
+.od-promotion-code {
+  background: #e8f5e8;
+  color: #2e7d32;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.od-discount {
+  color: #e53e3e;
+}
+
+.od-total {
+  border-top: 1px solid #e2e8f0;
+  padding-top: 8px;
+  font-size: 16px;
+  font-weight: bold;
+}
+
+.od-debug {
+  border-top: 1px dashed #ccc;
+  padding-top: 8px;
+  margin-top: 8px;
+}
+
+.od-product-info strong {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.od-table tfoot td {
+  background-color: #f8f9fa;
+  border-top: 2px solid #dee2e6;
+}

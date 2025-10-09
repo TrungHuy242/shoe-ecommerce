@@ -25,26 +25,25 @@ import Checkout from './features/user/Checkout/Checkout';
 import OrderSuccess from './features/user/OrderSuccess/OrderSuccess';
 import Login from './features/auth/Login';
 import Register from './features/auth/Register';
-import AdminLayout from './features/admin/AdminLayout'; // Import the AdminLayout
+import AdminLayout from './features/admin/AdminLayout';
 import ManagePromotions from './features/admin/ManagePromotions/ManagePromotions';
 import Account from './features/user/Account/Account';
 import Men from './features/user/Men/Men';
 import Women from './features/user/Women/Women';
 import Sandals from './features/user/Sandals/Sandals';
-import Settings from './features/user/Settings/Settings';
 import Deals from './features/user/Deals/Deals';
 import CategoryProducts from './features/user/CategoryProducts/CategoryProducts';
-import { useAuth } from './context/AuthContext'; // Import useAuth
+import { useAuth } from './context/AuthContext';
 
 function AppRoutes() {
-  const { isLoggedIn, role, loading } = useAuth(); // Get isLoggedIn and role from AuthContext
-  const isAdmin = role === 1; // Determine isAdmin based on role from context
+  const { isLoggedIn, role, loading } = useAuth();
+  const isAdmin = role === 1;
   const location = useLocation();
   const isLoginPage = location.pathname === '/login';
   const isRegisterPage = location.pathname === '/register';
 
   if (loading) {
-    return <div>Loading...</div>; // Or a spinner
+    return <div>Loading...</div>;
   }
 
   const AdminRoute = ({ children }) => {
@@ -73,7 +72,6 @@ function AppRoutes() {
         <Route path="/men" element={<Men />} />
         <Route path="/women" element={<Women />} />
         <Route path="/sandals" element={<Sandals />} />
-        <Route path="/settings" element={<Settings />} />
         <Route path="/deals" element={<Deals />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />

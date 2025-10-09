@@ -64,7 +64,24 @@ const OrderDetail = () => {
   if (loading) return <div className="order-detail-loading">Đang tải...</div>;
   if (!order) return <div className="order-detail-error">Không tìm thấy đơn hàng</div>;
 
-  const total = Number(order.total || 0);
+  // Tính toán chi tiết giá
+  const calculatedSubtotal = details.reduce((sum, item) => sum + (Number(item.unit_price || 0) * Number(item.quantity || 0)), 0);
+  
+  // Ưu tiên dữ liệu từ database, fallback về tính toán
+  const subtotal = Number(order.subtotal || 0) > 0 ? Number(order.subtotal) : calculatedSubtotal;
+  const discount = Number(order.discount_amount || 0);
+  const shipping = Number(order.shipping_fee || 0);
+  const total = Number(order.total || 0) > 0 ? Number(order.total) : (subtotal - discount + shipping);
+  
+  console.log('Order Detail Calculation:', {
+    order: order,
+    calculatedSubtotal,
+    subtotal,
+    discount,
+    shipping,
+    total,
+    details
+  });
 
   return (
     <div className="order-detail-page">
@@ -93,6 +110,11 @@ const OrderDetail = () => {
             </div>
             <div className="order-detail-info-item">Phương thức: {paymentMethodVi(order.payment_method)}</div>
             <div className="order-detail-info-item">Ngày tạo: {String(order.created_at || '').slice(0, 10)}</div>
+            {order.promotion_code && (
+              <div className="order-detail-info-item">
+                Mã giảm giá: <span className="order-detail-promotion-code">{order.promotion_code}</span>
+              </div>
+            )}
           </section>
         </div>
 
@@ -119,12 +141,36 @@ const OrderDetail = () => {
                   <div><strong>Màu:</strong> {it.color || '-'}</div>
                   <div><strong>Số lượng:</strong> {it.quantity}</div>
                   <div><strong>Đơn giá:</strong> {Number(it.unit_price || 0).toLocaleString('vi-VN')}đ</div>
+                  <div><strong>Thành tiền:</strong> {(Number(it.unit_price || 0) * Number(it.quantity || 0)).toLocaleString('vi-VN')}đ</div>
                 </div>
               </div>
             ))}
-            <div className="order-detail-total-row">
-              <span>Tổng cộng</span>
-              <span>{total.toLocaleString('vi-VN')}đ</span>
+            
+            {/* Chi tiết tính toán */}
+            <div className="order-detail-total-section">
+              <div className="order-detail-summary-row">
+                <span>Tạm tính:</span>
+                <span>{subtotal.toLocaleString('vi-VN')}đ</span>
+              </div>
+              
+              {discount > 0 && (
+                <div className="order-detail-summary-row order-detail-discount">
+                  <span>Mã giảm giá {order.promotion_code ? `(${order.promotion_code})` : ''}:</span>
+                  <span>-{discount.toLocaleString('vi-VN')}đ</span>
+                </div>
+              )}
+              
+              {shipping > 0 && (
+                <div className="order-detail-summary-row">
+                  <span>Phí vận chuyển:</span>
+                  <span>{shipping.toLocaleString('vi-VN')}đ</span>
+                </div>
+              )}
+              
+              <div className="order-detail-total-row">
+                <span>Tổng cộng</span>
+                <span>{total.toLocaleString('vi-VN')}đ</span>
+              </div>
             </div>
           </section>
         </div>

@@ -5,36 +5,42 @@ import './Deals.css';
 
 export default function Deals() {
   const [promotions, setPromotions] = useState([]);
-  const [productPromos, setProductPromos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
   const [onlyActive, setOnlyActive] = useState(true);
   const [copiedCode, setCopiedCode] = useState('');
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     let mounted = true;
-    async function fetchAll() {
+    async function fetchPromotions() {
       setLoading(true);
+      setError(null);
       try {
-        const [promoRes, ppRes] = await Promise.all([
-          api.get('/promotions/'),
-          api.get('/product-promotions/')
-        ]);
+        console.log('Fetching promotions...');
+        const promoRes = await api.get('promotions/');
+        console.log('Promotions response:', promoRes.data);
+        
         if (!mounted) return;
+        
         const promos = (promoRes.data.results || promoRes.data || []).map(p => ({
           ...p,
           start_date: p.start_date ? new Date(p.start_date) : null,
           end_date: p.end_date ? new Date(p.end_date) : null
         }));
+        
+        console.log('Processed promotions:', promos);
         setPromotions(promos);
-        setProductPromos(ppRes.data.results || ppRes.data || []);
       } catch (e) {
-        console.error('Fetch promotions error', e);
+        console.error('Fetch promotions error:', e);
+        setError('Không thể tải danh sách mã giảm giá. Vui lòng thử lại.');
+        if (!mounted) return;
+        setPromotions([]);
       } finally {
         if (mounted) setLoading(false);
       }
     }
-    fetchAll();
+    fetchPromotions();
     return () => { mounted = false; };
   }, []);
 
@@ -56,16 +62,6 @@ export default function Deals() {
     });
   }, [promotions, query, onlyActive]);
 
-  const codeToProducts = useMemo(() => {
-    const map = {};
-    for (const pp of productPromos) {
-      const key = pp.promotion;
-      if (!map[key]) map[key] = [];
-      map[key].push(pp.product);
-    }
-    return map;
-  }, [productPromos]);
-
   const formatDate = (d) => {
     if (!d) return '';
     const dt = new Date(d);
@@ -86,7 +82,22 @@ export default function Deals() {
       await navigator.clipboard.writeText(code);
       setCopiedCode(code);
       setTimeout(() => setCopiedCode(''), 1500);
-    } catch {}
+    } catch (e) {
+      console.error('Copy failed:', e);
+      // Fallback for older browsers
+      const textArea = document.createElement('textarea');
+      textArea.value = code;
+      document.body.appendChild(textArea);
+      textArea.select();
+      try {
+        document.execCommand('copy');
+        setCopiedCode(code);
+        setTimeout(() => setCopiedCode(''), 1500);
+      } catch (err) {
+        alert('Không thể copy mã. Vui lòng copy thủ công: ' + code);
+      }
+      document.body.removeChild(textArea);
+    }
   };
 
   return (
@@ -98,26 +109,58 @@ export default function Deals() {
         </div>
         <div className="actions">
           <div className="search">
-            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Tìm mã hoặc % giảm..." />
+            <input 
+              value={query} 
+              onChange={(e) => setQuery(e.target.value)} 
+              placeholder="Tìm mã hoặc % giảm..." 
+            />
           </div>
           <label className="toggle">
-            <input type="checkbox" checked={onlyActive} onChange={(e) => setOnlyActive(e.target.checked)} />
+            <input 
+              type="checkbox" 
+              checked={onlyActive} 
+              onChange={(e) => setOnlyActive(e.target.checked)} 
+            />
             <span><FaFilter /> Chỉ hiển thị mã còn hiệu lực</span>
           </label>
         </div>
       </div>
 
       {loading ? (
-        <div className="deals-loading">Đang tải khuyến mãi...</div>
+        <div className="deals-loading">
+          <div className="deals-spinner"></div>
+          <p>Đang tải khuyến mãi...</p>
+        </div>
+      ) : error ? (
+        <div className="deals-error">
+          <p>{error}</p>
+          <button onClick={() => window.location.reload()} className="retry-btn">
+            Thử lại
+          </button>
+        </div>
       ) : filtered.length === 0 ? (
-        <div className="deals-empty">Chưa có mã phù hợp.</div>
+        <div className="deals-empty">
+          <FaTag size={48} color="#ccc" />
+          <h3>Chưa có mã phù hợp</h3>
+          <p>
+            {promotions.length === 0 
+              ? 'Hiện tại chưa có mã giảm giá nào.' 
+              : 'Thử thay đổi từ khóa tìm kiếm hoặc bỏ bộ lọc.'}
+          </p>
+        </div>
       ) : (
         <div className="deal-grid">
           {filtered.map(p => (
             <div key={p.id || p.code} className={`deal-card ${p.is_active ? 'active' : 'inactive'}`}>
               <div className="deal-head">
-                <span className="badge"><FaFireAlt /> {p.discount_percentage}% OFF</span>
-                {p.end_date && <span className="time"><FaClock /> {timeLeft(p.end_date)}</span>}
+                <span className="badge">
+                  <FaFireAlt /> {p.discount_percentage}% OFF
+                </span>
+                {p.end_date && (
+                  <span className="time">
+                    <FaClock /> {timeLeft(p.end_date)}
+                  </span>
+                )}
               </div>
               <div className="deal-body">
                 <div className="code">{p.code}</div>
@@ -127,13 +170,22 @@ export default function Deals() {
                 </div>
                 <div className="apply">
                   <button onClick={() => handleCopy(p.code)} className="copy-btn">
-                    {copiedCode === p.code ? (<><FaCheck /> Đã copy</>) : (<><FaCopy /> Copy mã</>)}
+                    {copiedCode === p.code ? (
+                      <><FaCheck /> Đã copy</>
+                    ) : (
+                      <><FaCopy /> Copy mã</>
+                    )}
                   </button>
-                  <a className="view-btn" href={`/products?promo=${encodeURIComponent(p.code)}`}>Xem sản phẩm áp dụng</a>
+                  <a 
+                    className="view-btn" 
+                    href={`/products?promo=${encodeURIComponent(p.code)}`}
+                  >
+                    Áp dụng ngay
+                  </a>
                 </div>
-                {codeToProducts[p.id]?.length > 0 && (
-                  <div className="mini-note">Áp dụng cho {codeToProducts[p.id].length} sản phẩm</div>
-                )}
+                <div className="mini-note">
+                  Áp dụng cho tất cả sản phẩm
+                </div>
               </div>
             </div>
           ))}

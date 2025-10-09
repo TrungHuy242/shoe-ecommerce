@@ -16,62 +16,254 @@ import {
   FaPrint,
   FaDownload,
   FaClipboardList,
-  FaTrash
+  FaTrash,
+  FaChevronLeft,
+  FaChevronRight
 } from 'react-icons/fa';
 import './ManageOrders.css';
-import { listOrders, getUser, updateOrderStatus, mapBeToUiStatus , deleteOrder} from '../../../services/orderService';
+import api from '../../../services/api';
+import { useNotification } from '../../../context/NotificationContext';
+
 const ManageOrders = () => {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [dateFilter, setDateFilter] = useState('all');
   const [paymentFilter, setPaymentFilter] = useState('all');
   const [sortBy, setSortBy] = useState('date');
   const [sortOrder, setSortOrder] = useState('desc');
   const [showFilters, setShowFilters] = useState(false);
+  
+  // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(15);
+  const [totalOrders, setTotalOrders] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+  const itemsPerPage = 15;
+  const { success, error } = useNotification();
 
-  // Lấy đơn hàng từ API
+  // Debug: Kiểm tra token
   useEffect(() => {
-    let mounted = true;
-    const load = async () => {
-      try {
-        setLoading(true);
-        const raw = await listOrders({ ordering: '-created_at' });
-        const enriched = await Promise.all(
-          raw.map(async (o) => {
-            const u = await getUser(o.user);
+    const token = localStorage.getItem("access_token");
+    const refreshToken = localStorage.getItem("refresh_token");
+    
+    console.log('🔐 Admin Auth Debug:', {
+      hasAccessToken: !!token,
+      hasRefreshToken: !!refreshToken,
+      tokenLength: token?.length,
+      tokenPreview: token?.substring(0, 20) + '...'
+    });
+
+    if (!token) {
+      console.error('❌ No access token found! Admin needs to login.');
+      // Có thể redirect về login
+      // window.location.href = '/login';
+    }
+  }, []);
+
+  // Debounce search term
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 500); // 500ms debounce
+
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  // Load orders with pagination
+  const loadOrders = async (page = 1) => {
+    try {
+      setLoading(true);
+      
+      // Debug: Log request details
+      const params = {
+        ordering: sortOrder === 'desc' ? '-created_at' : 'created_at',
+        page: page,
+        page_size: itemsPerPage
+      };
+
+      // Add status filter if not 'all'
+      if (statusFilter !== 'all') {
+        const statusMap = {
+          'processing': 'pending',
+          'shipping': 'shipped', 
+          'delivered': 'delivered',
+          'cancelled': 'cancelled'
+        };
+        params.status = statusMap[statusFilter] || statusFilter;
+      }
+
+      console.log('📤 Loading orders with params:', params);
+      console.log('🔗 Full URL:', `orders/?${new URLSearchParams(params).toString()}`);
+
+      // Call API
+      const ordersRes = await api.get('orders/', { params });
+      
+      let rawOrders = [];
+      let total = 0;
+      
+      if (Array.isArray(ordersRes.data)) {
+        rawOrders = ordersRes.data;
+        total = ordersRes.data.length;
+      } else {
+        rawOrders = ordersRes.data.results || [];
+        total = ordersRes.data.count || 0;
+      }
+
+      console.log('📥 Orders API Response:', {
+        status: ordersRes.status,
+        dataType: Array.isArray(ordersRes.data) ? 'array' : 'object',
+        count: Array.isArray(ordersRes.data) ? ordersRes.data.length : ordersRes.data?.count,
+        hasResults: !!ordersRes.data?.results
+      });
+
+      console.log('API Response:', { orders: rawOrders.length, total, page });
+
+      // Enrich orders with user info
+      const enrichedOrders = await Promise.all(
+        rawOrders.map(async (o) => {
+          try {
+            let user = null;
+            if (o.user) {
+              const userRes = await api.get(`users/${o.user}/`);
+              user = userRes.data;
+            }
+
+            // Map backend status to UI status
+            const statusMap = { 
+              pending: 'processing', 
+              shipped: 'shipping', 
+              delivered: 'delivered', 
+              cancelled: 'cancelled' 
+            };
+
             return {
               id: 'FT' + o.id,
               rawId: o.id,
-              customerName: u?.username || u?.name || `User #${o.user ?? ''}`,
-              customerEmail: u?.email || '',
-              customerPhone: u?.phone || '',
+              customerName: user?.name || user?.username || `User #${o.user || 'N/A'}`,
+              customerEmail: user?.email || '',
+              customerPhone: user?.phone || '',
               total: Number(o.total || 0),
-              status: mapBeToUiStatus(o.status),
+              subtotal: Number(o.subtotal || 0),
+              discount: Number(o.discount_amount || 0),
+              promotionCode: o.promotion_code || null,
+              status: statusMap[String(o.status).toLowerCase()] || 'processing',
               paymentStatus: (o.payment_status || 'pending').toLowerCase(), 
               paymentMethod: o.payment_method || '',
               date: o.created_at || o.updated_at || new Date().toISOString(),
-              shippingAddress: u?.address || '',
+              shippingAddress: user?.address || '',
               items: [],
               tracking: null,
               notes: null
             };
-          })
+          } catch (e) {
+            console.error('Error enriching order:', o.id, e);
+            return {
+              id: 'FT' + o.id,
+              rawId: o.id,
+              customerName: `User #${o.user || 'N/A'}`,
+              customerEmail: '',
+              customerPhone: '',
+              total: Number(o.total || 0),
+              subtotal: Number(o.subtotal || 0),
+              discount: Number(o.discount_amount || 0),
+              promotionCode: o.promotion_code || null,
+              status: 'processing',
+              paymentStatus: 'pending',
+              paymentMethod: o.payment_method || '',
+              date: o.created_at || new Date().toISOString(),
+              shippingAddress: '',
+              items: [],
+              tracking: null,
+              notes: null
+            };
+          }
+        })
+      );
+
+      // Apply frontend filters (search, date) since backend doesn't support them
+      let filteredOrders = enrichedOrders;
+      
+      // Search filter
+      if (debouncedSearchTerm) {
+        filteredOrders = filteredOrders.filter(order => 
+          order.id.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
+          order.customerName.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
+          order.customerEmail.toLowerCase().includes(debouncedSearchTerm.toLowerCase())
         );
-        if (mounted) setOrders(enriched);
-      } catch (e) {
-        console.error('Failed to load orders', e);
-        if (mounted) setOrders([]);
-      } finally {
-        if (mounted) setLoading(false);
       }
-    };
-    load();
-    return () => { mounted = false; };
-  }, []);
+
+      // Date filter
+      if (dateFilter !== 'all') {
+        filteredOrders = filteredOrders.filter(order => {
+          const orderDate = new Date(order.date);
+          const today = new Date();
+          const diffTime = Math.abs(today - orderDate);
+          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+          
+          switch (dateFilter) {
+            case 'today': return diffDays <= 1;
+            case 'week': return diffDays <= 7;
+            case 'month': return diffDays <= 30;
+            default: return true;
+          }
+        });
+      }
+
+      // Payment filter
+      if (paymentFilter !== 'all') {
+        filteredOrders = filteredOrders.filter(order => 
+          order.paymentStatus === paymentFilter
+        );
+      }
+
+      // Update state
+      setOrders(filteredOrders);
+      setTotalOrders(total);
+      setTotalPages(Math.ceil(total / itemsPerPage));
+
+    } catch (e) {
+      console.error('❌ Failed to load orders:', {
+        status: e.response?.status,
+        statusText: e.response?.statusText,
+        data: e.response?.data,
+        message: e.message,
+        url: e.config?.url,
+        method: e.config?.method,
+        headers: e.config?.headers
+      });
+      
+      // Specific handling for 401
+      if (e.response?.status === 401) {
+        alert('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
+        // Có thể redirect về login
+        // window.location.href = '/login';
+      } else {
+        alert('Không thể tải danh sách đơn hàng: ' + (e.response?.data?.detail || e.message));
+      }
+      
+      setOrders([]);
+      setTotalOrders(0);
+      setTotalPages(0);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Load orders when page or filters change
+  useEffect(() => {
+    loadOrders(currentPage);
+  }, [currentPage, statusFilter]);
+
+  // Reload when search/date/payment filters change (reset to page 1)
+  useEffect(() => {
+    if (currentPage === 1) {
+      loadOrders(1);
+    } else {
+      setCurrentPage(1);
+    }
+  }, [debouncedSearchTerm, dateFilter, paymentFilter, sortBy, sortOrder]);
 
   const statusOptions = [
     { value: 'processing', label: 'Đang xử lý', color: '#f7931e', icon: FaClipboardList },
@@ -87,70 +279,6 @@ const ManageOrders = () => {
     { value: 'refunded', label: 'Đã hoàn tiền', color: '#667eea' },
     { value: 'failed', label: 'Thanh toán lỗi', color: '#e53e3e' }
   ];
-  // Filter and sort orders
-  const filteredOrders = orders
-    .filter(order => {
-      const matchesSearch = 
-        order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        order.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        order.customerEmail.toLowerCase().includes(searchTerm.toLowerCase());
-      
-      const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
-      const matchesPayment = paymentFilter === 'all' || order.paymentStatus === paymentFilter;
-      
-      const matchesDate = (() => {
-        if (dateFilter === 'all') return true;
-        const orderDate = new Date(order.date);
-        const today = new Date();
-        const diffTime = Math.abs(today - orderDate);
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        
-        switch (dateFilter) {
-          case 'today': return diffDays <= 1;
-          case 'week': return diffDays <= 7;
-          case 'month': return diffDays <= 30;
-          default: return true;
-        }
-      })();
-      
-      return matchesSearch && matchesStatus && matchesPayment && matchesDate;
-    })
-    .sort((a, b) => {
-      let aValue, bValue;
-      
-      switch (sortBy) {
-        case 'date':
-          aValue = new Date(a.date);
-          bValue = new Date(b.date);
-          break;
-        case 'customer':
-          aValue = a.customerName.toLowerCase();
-          bValue = b.customerName.toLowerCase();
-          break;
-        case 'total':
-          aValue = a.total;
-          bValue = b.total;
-          break;
-        case 'status':
-          aValue = a.status;
-          bValue = b.status;
-          break;
-        default:
-          aValue = new Date(a.date);
-          bValue = new Date(b.date);
-      }
-      
-      if (sortOrder === 'asc') {
-        return aValue > bValue ? 1 : -1;
-      } else {
-        return aValue < bValue ? 1 : -1;
-      }
-    });
-
-  // Pagination
-  const totalPages = Math.ceil(filteredOrders.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const paginatedOrders = filteredOrders.slice(startIndex, startIndex + itemsPerPage);
 
   const handleSort = (field) => {
     if (sortBy === field) {
@@ -160,36 +288,76 @@ const ManageOrders = () => {
       setSortOrder('asc');
     }
   };
+
   const handleStatusChange = async (displayId, newStatus) => {
     try {
-      const o = orders.find(x => x.id === displayId);
-      if (!o) return;
-      await updateOrderStatus(o.rawId, newStatus);
-      setOrders(prev => prev.map(order =>
-        order.id === displayId ? { ...order, status: newStatus } : order
+      const order = orders.find(x => x.id === displayId);
+      if (!order) return;
+
+      // Map UI status to backend status
+      const statusMap = {
+        'processing': 'pending',
+        'shipping': 'shipped',
+        'delivered': 'delivered', 
+        'cancelled': 'cancelled'
+      };
+      const backendStatus = statusMap[newStatus] || newStatus;
+
+      await api.patch(`orders/${order.rawId}/`, { status: backendStatus });
+      
+      // Update local state
+      setOrders(prev => prev.map(o =>
+        o.id === displayId ? { ...o, status: newStatus } : o
       ));
+
+      // Show success notification
+      const statusLabels = {
+        'processing': 'Đang xử lý',
+        'shipping': 'Đang giao',
+        'delivered': 'Đã giao',
+        'cancelled': 'Đã hủy'
+      };
+      success(`Đã cập nhật trạng thái đơn hàng #${displayId} thành "${statusLabels[newStatus] || newStatus}"`);
+      
+      console.log(`Updated order ${displayId} status to ${newStatus}`);
     } catch (e) {
-      console.error('Update status failed', e);
-      alert('Cập nhật trạng thái thất bại');
+      console.error('Update status failed:', e?.response?.data || e.message);
+      error('Cập nhật trạng thái thất bại: ' + (e?.response?.data?.detail || e.message));
     }
   };
 
   const handleDeleteOrder = async (displayId) => {
-    const o = orders.find(x => x.id === displayId);
-    if (!o) return;
-    if (!window.confirm('Bạn có chắc muốn xóa đơn hàng này ?')) return;
+    const order = orders.find(x => x.id === displayId);
+    if (!order) return;
+    
+    if (!window.confirm(`Bạn có chắc muốn xóa đơn hàng ${displayId}?`)) return;
+    
     try {
-      await deleteOrder(o.rawId);
-      setOrders(prev => prev.filter(order => order.id !== displayId));
+      await api.delete(`orders/${order.rawId}/`);
+      
+      // Remove from local state
+      setOrders(prev => prev.filter(o => o.id !== displayId));
+      
+      // Update total count
+      setTotalOrders(prev => prev - 1);
+      
+      alert('Xóa đơn hàng thành công');
     } catch (e) {
-      console.error('Delete order failed', e);
-      alert('Xóa đơn hàng không thành công');
+      console.error('Delete order failed:', e?.response?.data || e.message);
+      alert('Xóa đơn hàng thất bại: ' + (e?.response?.data?.detail || e.message));
     }
   };
 
   const handleExport = () => {
-    console.log('Exporting orders:', filteredOrders);
-    alert('Đang xuất dữ liệu...');
+    console.log('Exporting orders:', orders);
+    alert('Chức năng xuất Excel đang được phát triển...');
+  };
+
+  // Pagination handlers
+  const handlePageChange = (page) => {
+    if (page >= 1 && page <= totalPages) {
+      setCurrentPage(page);
+    }
   };
 
   const formatCurrency = (amount) => {
@@ -235,7 +403,7 @@ const ManageOrders = () => {
               <FaShoppingCart className="ord-title-icon" />
               Quản lý đơn hàng
             </h1>
-            <p>{filteredOrders.length} đơn hàng</p>
+            <p>{totalOrders} đơn hàng • Trang {currentPage}/{totalPages}</p>
           </div>
           
           <div className="ord-header-actions">
@@ -361,16 +529,19 @@ const ManageOrders = () => {
               </tr>
             </thead>
             <tbody>
-              {paginatedOrders.map(order => {
+              {orders.map(order => {
                 const statusConfig = getStatusConfig(order.status);
                 const paymentConfig = getPaymentStatusConfig(order.paymentStatus);
                 
                 return (
                   <tr key={order.id}>
                     <td>
-                      <Link to={`/admin/orders/${order.id}`} className="ord-order-link">
+                      <Link to={`/admin/orders/${order.rawId}`} className="ord-order-link">
                         #{order.id}
                       </Link>
+                      {order.promotionCode && (
+                        <div className="ord-promotion-code">🏷️ {order.promotionCode}</div>
+                      )}
                     </td>
                     <td>
                       <div className="ord-customer-info">
@@ -378,7 +549,17 @@ const ManageOrders = () => {
                         <div className="ord-customer-email">{order.customerEmail}</div>
                       </div>
                     </td>
-                    <td className="ord-total-amount">{formatCurrency(order.total)}</td>
+                    <td className="ord-total-amount">
+                      {order.discount > 0 ? (
+                        <div className="ord-pricing-breakdown">
+                          <div className="ord-subtotal">{formatCurrency(order.subtotal)}</div>
+                          <div className="ord-discount">-{formatCurrency(order.discount)}</div>
+                          <div className="ord-final-total">{formatCurrency(order.total)}</div>
+                        </div>
+                      ) : (
+                        formatCurrency(order.total)
+                      )}
+                    </td>
                     <td>
                       <select 
                         value={order.status}
@@ -408,7 +589,7 @@ const ManageOrders = () => {
                     <td>
                       <div className="ord-action-buttons">
                         <Link 
-                          to={`/admin/orders/${order.id}`}
+                          to={`/admin/orders/${order.rawId}`}
                           className="ord-action-btn ord-view-btn"
                           title="Xem chi tiết"
                         >
@@ -423,7 +604,7 @@ const ManageOrders = () => {
                         </button>
                         <button
                           className="ord-action-btn ord-delete-btn"
-                          title="Xóa đơn hàng"
+                          title="Xóa đơn hàng"
                           onClick={() => handleDeleteOrder(order.id)}
                         >
                           <FaTrash />
@@ -440,31 +621,42 @@ const ManageOrders = () => {
         {/* Pagination */}
         {totalPages > 1 && (
           <div className="ord-pagination">
-            <button 
-              className="ord-page-btn"
-              disabled={currentPage === 1}
-              onClick={() => setCurrentPage(currentPage - 1)}
-            >
-              Trước
-            </button>
+            <div className="ord-pagination-info">
+              Hiển thị {((currentPage - 1) * itemsPerPage) + 1}-{Math.min(currentPage * itemsPerPage, totalOrders)} trong {totalOrders} đơn hàng
+            </div>
             
-            {Array.from({ length: totalPages }, (_, index) => index + 1).map(page => (
-              <button
-                key={page}
-                className={`ord-page-btn ${currentPage === page ? 'ord-active' : ''}`}
-                onClick={() => setCurrentPage(page)}
+            <div className="ord-pagination-controls">
+              <button 
+                className="ord-page-btn"
+                disabled={currentPage === 1}
+                onClick={() => handlePageChange(currentPage - 1)}
               >
-                {page}
+                <FaChevronLeft /> Trước
               </button>
-            ))}
-            
-            <button 
-              className="ord-page-btn"
-              disabled={currentPage === totalPages}
-              onClick={() => setCurrentPage(currentPage + 1)}
-            >
-              Sau
-            </button>
+              
+              {Array.from({ length: Math.min(5, totalPages) }, (_, index) => {
+                const page = Math.max(1, currentPage - 2) + index;
+                if (page > totalPages) return null;
+                
+                return (
+                  <button
+                    key={page}
+                    className={`ord-page-btn ${currentPage === page ? 'ord-active' : ''}`}
+                    onClick={() => handlePageChange(page)}
+                  >
+                    {page}
+                  </button>
+                );
+              })}
+              
+              <button 
+                className="ord-page-btn"
+                disabled={currentPage === totalPages}
+                onClick={() => handlePageChange(currentPage + 1)}
+              >
+                Sau <FaChevronRight />
+              </button>
+            </div>
           </div>
         )}
       </div>

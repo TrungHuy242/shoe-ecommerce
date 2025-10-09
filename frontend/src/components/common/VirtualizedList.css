@@ -1,0 +1,52 @@
+.virtualized-list {
+  overflow-y: auto;
+  position: relative;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+}
+
+.virtualized-list-content {
+  position: relative;
+}
+
+.virtualized-list-items {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+}
+
+.virtualized-list-item {
+  display: flex;
+  align-items: center;
+  padding: 0.75rem;
+  border-bottom: 1px solid #f7fafc;
+  transition: background-color 0.2s ease;
+}
+
+.virtualized-list-item:hover {
+  background-color: #f7fafc;
+}
+
+.virtualized-list-item:last-child {
+  border-bottom: none;
+}
+
+/* Custom scrollbar */
+.virtualized-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.virtualized-list::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+.virtualized-list::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 3px;
+}
+
+.virtualized-list::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}

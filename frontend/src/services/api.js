@@ -16,14 +16,16 @@ api.interceptors.request.use(
       "register/",
     ];
 
-    // Các endpoint chỉ cần auth cho POST/PUT/PATCH/DELETE, GET thì không cần
+    // Các endpoint THỰC SỰ chỉ cần auth cho POST/PUT/PATCH/DELETE, GET thì không cần
     const readOnlyEndpoints = [
       "categories/",
       "genders/", 
       "brands/",
       "sizes/",
       "colors/",
-      "products/"
+      "products/",
+      "promotions/"
+      // BỎ "orders/" vì orders cần auth cho cả GET
     ];
     
     // Nếu là GET request đến read-only endpoints thì không cần token
@@ -41,6 +43,43 @@ api.interceptors.request.use(
     return config;
   },
   (error) => Promise.reject(error)
+);
+
+// Interceptor xử lý response và refresh token
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config;
+
+    // Nếu lỗi 401 và chưa thử refresh token
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
+
+      try {
+        const refreshToken = localStorage.getItem("refresh_token");
+        if (refreshToken) {
+          const response = await axios.post("http://127.0.0.1:8000/api/token/refresh/", {
+            refresh: refreshToken,
+          });
+
+          const newAccessToken = response.data.access;
+          localStorage.setItem("access_token", newAccessToken);
+
+          // Retry request với token mới
+          originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
+          return api(originalRequest);
+        }
+      } catch (refreshError) {
+        // Refresh token cũng hết hạn, redirect về login
+        localStorage.removeItem("access_token");
+        localStorage.removeItem("refresh_token");
+        window.location.href = "/login";
+        return Promise.reject(refreshError);
+      }
+    }
+
+    return Promise.reject(error);
+  }
 );
 
 export default api;

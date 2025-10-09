@@ -8,11 +8,15 @@ import {
   FaMapMarkerAlt,
   FaPhone,
   FaEnvelope,
-  FaUser
+  FaUser,
+  FaChevronRight,
+  FaChevronLeft,
+  FaSpinner
 } from 'react-icons/fa';
 import './Checkout.css';
 import api from '../../../services/api';
 import { buildVietQrImageUrl } from '../../../services/paymentService';
+import { useNotification } from '../../../context/NotificationContext';
 
 export async function createOrUpdateQrPayment(orderId, transactionId) {
   console.log('createOrUpdateQrPayment', orderId, transactionId);
@@ -36,10 +40,13 @@ const Checkout = () => {
   const location = useLocation();
   const buyNowItems = location.state?.buyNow ? (location.state?.items || []) : null;
   const stateItems = !location.state?.buyNow ? (location.state?.items || null) : null;
+  const appliedCoupon = location.state?.appliedCoupon || null; // Nhận thông tin mã giảm giá
 
   const [currentStep, setCurrentStep] = useState(1);
   const [paymentMethod, setPaymentMethod] = useState('qr');
   const [loading, setLoading] = useState(false);
+  const [stepLoading, setStepLoading] = useState(false);
+  const { success, error } = useNotification();
   
   const [shippingInfo, setShippingInfo] = useState({
     fullName: '',
@@ -133,9 +140,47 @@ const Checkout = () => {
     prefillShipping();
   }, [buyNowItems, stateItems]);
 
-  const subtotal = cartItems.reduce((s, it) => s + it.price * it.quantity, 0);
-  const shipping = cartItems.length > 0 ? 30000 : 0;
-  const total = subtotal + shipping;
+  const handleNextStep = async () => {
+    setStepLoading(true);
+    
+    try {
+      if (currentStep === 1) {
+        // Validate shipping info
+        if (!shippingInfo.fullName || !shippingInfo.email || !shippingInfo.phone || !shippingInfo.address) {
+          error('Vui lòng điền đầy đủ thông tin giao hàng');
+          return;
+        }
+        setCurrentStep(2);
+      } else if (currentStep === 2) {
+        // Validate payment method
+        if (!paymentMethod) {
+          error('Vui lòng chọn phương thức thanh toán');
+          return;
+        }
+        setCurrentStep(3);
+      }
+    } catch (err) {
+      error('Có lỗi xảy ra, vui lòng thử lại');
+    } finally {
+      setStepLoading(false);
+    }
+  };
+
+  // Cập nhật tính toán tổng tiền với mã giảm giá
+  const subtotal = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  const savings = cartItems.reduce((sum, item) => {
+    const originalPrice = item.originalPrice || item.price;
+    return sum + Math.max((originalPrice - item.price), 0) * item.quantity;
+  }, 0);
+  
+  // Áp dụng mã giảm giá nếu có
+  let discount = 0;
+  if (appliedCoupon && appliedCoupon.discount_amount) {
+    discount = appliedCoupon.discount_amount;
+  }
+  
+  const shipping = subtotal >= 1000000 ? 0 : 30000;
+  const total = subtotal - discount + shipping;
 
   const handleShippingChange = (e) => {
     const { name, value } = e.target;
@@ -166,22 +211,28 @@ const Checkout = () => {
     return true;
   };
 
-  const handleNextStep = () => {
-    if (currentStep === 1 && validateStep1()) {
-      setCurrentStep(2);
-    } else if (currentStep === 2 && validateStep2()) {
-      setCurrentStep(3);
-    }
-  };
 
   const handlePlaceOrder = async () => {
     if (cartItems.length === 0) return;
     setLoading(true);
     try {
-      const orderTotal = cartItems.reduce((s, it) => s + Number(it.price || 0) * Number(it.quantity || 1), 0);
+      const orderSubtotal = cartItems.reduce((s, it) => s + Number(it.price || 0) * Number(it.quantity || 1), 0);
+      const orderDiscount = appliedCoupon ? appliedCoupon.discount_amount : 0;
+      const orderShipping = orderSubtotal >= 1000000 ? 0 : 30000;
+      const orderTotal = orderSubtotal - orderDiscount + orderShipping;
+      
       const pm = paymentMethod === 'qr' ? 'qr' : 'cod';
 
-      const orderRes = await api.post('orders/', { payment_method: pm });
+      // Tạo order với thông tin đầy đủ
+      const orderRes = await api.post('orders/', { 
+        payment_method: pm,
+        subtotal: orderSubtotal.toFixed(2),
+        discount_amount: orderDiscount.toFixed(2),
+        shipping_fee: orderShipping.toFixed(2),
+        promotion_code: appliedCoupon ? appliedCoupon.code : null,
+        total: orderTotal.toFixed(2)
+      });
+      
       const orderId = orderRes?.data?.id;
       if (!orderId) throw new Error('Không tạo được đơn hàng');
 
@@ -198,10 +249,9 @@ const Checkout = () => {
         )
       );
 
+      // Cập nhật lại order với status
       await api.patch(`orders/${orderId}/`, {
-        total: Number(orderTotal).toFixed(2),
         status: 'pending',
-        payment_method: pm,
         payment_status: pm === 'qr' ? 'paid' : 'pending'
       });
 
@@ -220,6 +270,10 @@ const Checkout = () => {
         state: {
           orderNumber: 'FT' + orderId,
           total: orderTotal,
+          subtotal: orderSubtotal,
+          discount: orderDiscount,
+          shipping: orderShipping,
+          promotionCode: appliedCoupon ? appliedCoupon.code : null,
           items: cartItems
         }
       });
@@ -553,17 +607,98 @@ const Checkout = () => {
                 <span>Tạm tính:</span>
                 <span>{subtotal.toLocaleString()}đ</span>
               </div>
+              
+              {savings > 0 && (
+                <div className="chk-total-row checkout-savings">
+                  <span>Tiết kiệm sản phẩm:</span>
+                  <span>-{savings.toLocaleString()}đ</span>
+                </div>
+              )}
+              
+              {appliedCoupon && discount > 0 && (
+                <div className="chk-total-row checkout-discount">
+                  <span>Mã giảm giá ({appliedCoupon.code}):</span>
+                  <span>-{discount.toLocaleString()}đ ({appliedCoupon.discount_percentage}%)</span>
+                </div>
+              )}
+              
               <div className="chk-total-row">
                 <span>Phí vận chuyển:</span>
-                <span>{shipping.toLocaleString()}đ</span>
+                <span>{shipping === 0 ? 'Miễn phí' : `${shipping.toLocaleString()}đ`}</span>
               </div>
+              
               <div className="chk-total-row chk-final-total">
                 <span>Tổng cộng:</span>
                 <span>{total.toLocaleString()}đ</span>
               </div>
             </div>
+
+            {/* Hiển thị thông tin mã giảm giá đã áp dụng */}
+            {appliedCoupon && (
+              <div className="checkout-applied-coupon">
+                <div className="coupon-info">
+                  <FaCheck className="coupon-check-icon" />
+                  <span>Đã áp dụng mã <strong>{appliedCoupon.code}</strong></span>
+                </div>
+                <div className="coupon-savings">
+                  Tiết kiệm: {discount.toLocaleString()}đ
+                </div>
+              </div>
+            )}
           </div>
         </div>
+      </div>
+
+      {/* Progress Indicator */}
+      <div className="checkout-progress">
+        <div className="progress-steps">
+          <div className={`progress-step ${currentStep >= 1 ? 'active' : ''} ${currentStep > 1 ? 'completed' : ''}`}>
+            <div className="step-number">1</div>
+            <div className="step-label">Thông tin giao hàng</div>
+          </div>
+          <div className={`progress-step ${currentStep >= 2 ? 'active' : ''} ${currentStep > 2 ? 'completed' : ''}`}>
+            <div className="step-number">2</div>
+            <div className="step-label">Thanh toán</div>
+          </div>
+          <div className={`progress-step ${currentStep >= 3 ? 'active' : ''} ${currentStep > 3 ? 'completed' : ''}`}>
+            <div className="step-number">3</div>
+            <div className="step-label">Xác nhận</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Navigation Buttons */}
+      <div className="checkout-navigation">
+        {currentStep > 1 && (
+          <button 
+            className="checkout-nav-btn checkout-prev-btn"
+            onClick={() => setCurrentStep(currentStep - 1)}
+            disabled={stepLoading}
+          >
+            <FaChevronLeft />
+            Quay lại
+          </button>
+        )}
+        
+        {currentStep < 3 && (
+          <button 
+            className="checkout-nav-btn checkout-next-btn"
+            onClick={handleNextStep}
+            disabled={stepLoading}
+          >
+            {stepLoading ? (
+              <>
+                <FaSpinner className="spinning" />
+                Đang xử lý...
+              </>
+            ) : (
+              <>
+                Tiếp tục
+                <FaChevronRight />
+              </>
+            )}
+          </button>
+        )}
       </div>
     </div>
   );

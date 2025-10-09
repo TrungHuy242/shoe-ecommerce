@@ -274,3 +274,15 @@
       font-size: 1.25rem;
     }
   }
+
+.order-success-discount {
+  color: #dc2626;
+  font-weight: 600;
+}
+
+.order-success-total-row {
+  border-top: 1px solid #e5e7eb;
+  padding-top: 0.5rem;
+  margin-top: 0.5rem;
+  font-weight: 700;
+}

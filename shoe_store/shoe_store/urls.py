@@ -16,7 +16,7 @@ Including another URLconf
 """
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from core.views import ProductViewSet, CategoryViewSet, BrandViewSet, BannerViewSet, ImageViewSet, ProductPromotionViewSet, PromotionViewSet, CartItemViewSet, CartViewSet, OrderViewSet, OrderDetailViewSet ,PaymentViewSet, WishlistViewSet, NotificationViewSet, CustomTokenObtainPairView,RegisterView, SizeViewSet, ColorViewSet, GenderViewSet, UserViewSet
+from core.views import ProductViewSet, CategoryViewSet, BrandViewSet, BannerViewSet, ImageViewSet, PromotionViewSet, CartItemViewSet, CartViewSet, OrderViewSet, OrderDetailViewSet ,PaymentViewSet, WishlistViewSet, NotificationViewSet, CustomTokenObtainPairView,RegisterView, SizeViewSet, ColorViewSet, GenderViewSet, UserViewSet, ReviewViewSet
 from rest_framework_simplejwt.views import TokenRefreshView
 from django.conf import settings
 from django.conf.urls.static import static
@@ -35,6 +35,7 @@ from datetime import datetime, timedelta
 from rest_framework.views import APIView
 # Chatbot models removed
 from core.views import ProductAvailabilityView, OrderStatusView
+# Removed: from core.views import ValidatePromotionView
 
 
 
@@ -44,7 +45,6 @@ router.register(r'categories', CategoryViewSet),
 router.register(r'brands', BrandViewSet),
 router.register(r'banners', BannerViewSet),
 router.register(r'images', ImageViewSet),
-router.register(r'product-promotions', ProductPromotionViewSet),
 router.register(r'promotions', PromotionViewSet),
 router.register(r'cart-items', CartItemViewSet),
 router.register(r'carts', CartViewSet),
@@ -59,6 +59,7 @@ router.register(r'sizes', SizeViewSet)
 router.register(r'colors', ColorViewSet)
 router.register(r'genders', GenderViewSet)
 router.register(r'users', UserViewSet)
+router.register(r'reviews', ReviewViewSet)
 
 
 
@@ -70,4 +71,5 @@ urlpatterns = [
     path('api/register/', RegisterView.as_view(), name='register'),
     path('api/products/check-availability/', ProductAvailabilityView.as_view(), name='product-availability'),
     path('api/orders/check-status/', OrderStatusView.as_view(), name='order-status'),
+    # Removed: path('api/promotions/validate/', ValidatePromotionView.as_view(), name='validate-promotion'),
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

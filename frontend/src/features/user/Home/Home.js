@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { FaHeart, FaShoppingCart, FaEnvelope, FaStar } from 'react-icons/fa';
 import api from '../../../services/api';
 import { useAuth } from '../../../context/AuthContext';
+import SkeletonLoader from '../../../components/common/SkeletonLoader';
 import './Home.css';
 
 const Home = () => {
@@ -112,7 +113,52 @@ const Home = () => {
     }
   };
 
-  if (loading) return <p className="loading-text">Đang tải...</p>;
+  if (loading) {
+    return (
+      <div className="home-page">
+        {/* Banner Skeleton */}
+        <section className="banner-section">
+          <div className="skeleton-banner">
+            <div className="skeleton-banner-content">
+              <div className="skeleton-banner-title"></div>
+              <div className="skeleton-banner-subtitle"></div>
+              <div className="skeleton-banner-button"></div>
+            </div>
+          </div>
+        </section>
+
+        {/* Categories Skeleton */}
+        <section className="categories-section">
+          <div className="categories-header">
+            <div className="skeleton-title" style={{width: '300px', height: '32px'}}></div>
+          </div>
+          <div className="categories-grid">
+            <SkeletonLoader type="card" count={3} />
+          </div>
+        </section>
+
+        {/* Featured Products Skeleton */}
+        <section className="featured-products-section">
+          <div className="featured-header">
+            <div className="skeleton-title" style={{width: '250px', height: '28px'}}></div>
+          </div>
+          <div className="products-grid">
+            <SkeletonLoader type="card" count={8} />
+          </div>
+        </section>
+
+        {/* Brands Skeleton */}
+        <section className="brands-section">
+          <div className="brands-header">
+            <div className="skeleton-title" style={{width: '200px', height: '28px'}}></div>
+          </div>
+          <div className="brands-grid">
+            <SkeletonLoader type="card" count={5} />
+          </div>
+        </section>
+      </div>
+    );
+  }
   if (error) return <p className="error-text">{error}</p>;
 
   return (

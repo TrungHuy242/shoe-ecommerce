@@ -59,8 +59,6 @@ class Product(models.Model):
     brand = models.ForeignKey(Brand, on_delete=models.CASCADE, related_name='products')
     sizes = models.ManyToManyField(Size, related_name='products')
     colors = models.ManyToManyField(Color, related_name='products')
-    rating = models.FloatField(default=0.0)
-    reviews = models.IntegerField(default=0)
     sales_count = models.IntegerField(default=0)
 
     def __str__(self):
@@ -104,8 +102,12 @@ class CartItem(models.Model):
     created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
 
 class Order(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True, default=None)  # Cho phép null
-    total = models.DecimalField(max_digits=10, decimal_places=2, default=0)  # Thêm default để khỏi hỏi
+    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True, default=None)
+    total = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    subtotal = models.DecimalField(max_digits=10, decimal_places=2, default=0, null=True, blank=True)  # Thêm
+    discount_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0, null=True, blank=True)  # Thêm
+    shipping_fee = models.DecimalField(max_digits=10, decimal_places=2, default=0, null=True, blank=True)  # Thêm
+    promotion_code = models.CharField(max_length=20, blank=True, null=True)  # Thêm
     status = models.CharField(
         max_length=20,
         choices=[
@@ -159,3 +161,18 @@ class Notification(models.Model):
     is_read = models.BooleanField(default=False)
     sent_at = models.DateTimeField(auto_now_add=True)
     created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
+
+class Review(models.Model):
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='product_reviews')
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    rating = models.IntegerField(choices=[(i, i) for i in range(1, 6)])
+    title = models.CharField(max_length=100)
+    comment = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        unique_together = ('product', 'user')  # Mỗi user chỉ đánh giá 1 lần cho 1 sản phẩm
+    
+    def __str__(self):
+        return f"{self.user.username} - {self.product.name} ({self.rating}⭐)"

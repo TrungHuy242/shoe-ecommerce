@@ -7,6 +7,10 @@ const OrderSuccess = () => {
   const location = useLocation();
   const orderNumber = location.state?.orderNumber || 'FT' + Date.now();
   const total = location.state?.total || 0;
+  const subtotal = location.state?.subtotal || 0;
+  const discount = location.state?.discount || 0;
+  const shipping = location.state?.shipping || 0;
+  const promotionCode = location.state?.promotionCode || null;
   const items = location.state?.items || [];
 
   return (
@@ -31,7 +35,27 @@ const OrderSuccess = () => {
             <span className="order-success-label">Mã đơn hàng</span>
             <span className="order-success-order-number">{orderNumber}</span>
           </div>
+          
           <div className="order-success-info-row">
+            <span className="order-success-label">Tạm tính</span>
+            <span className="order-success-subtotal">{Number(subtotal).toLocaleString('vi-VN')}đ</span>
+          </div>
+          
+          {discount > 0 && (
+            <div className="order-success-info-row">
+              <span className="order-success-label">Mã giảm giá ({promotionCode})</span>
+              <span className="order-success-discount">-{Number(discount).toLocaleString('vi-VN')}đ</span>
+            </div>
+          )}
+          
+          {shipping > 0 && (
+            <div className="order-success-info-row">
+              <span className="order-success-label">Phí vận chuyển</span>
+              <span className="order-success-shipping">{Number(shipping).toLocaleString('vi-VN')}đ</span>
+            </div>
+          )}
+          
+          <div className="order-success-info-row order-success-total-row">
             <span className="order-success-label">Tổng tiền</span>
             <span className="order-success-total">{Number(total).toLocaleString('vi-VN')}đ</span>
           </div>

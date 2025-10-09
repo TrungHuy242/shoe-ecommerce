@@ -11,7 +11,11 @@ import {
   FaTimes,
   FaFilter,
   FaCalendarAlt,
-  FaReceipt
+  FaReceipt,
+  FaChevronLeft,
+  FaChevronRight,
+  FaAngleDoubleLeft,
+  FaAngleDoubleRight
 } from 'react-icons/fa';
 import './OrderHistory.css';
 import api from '../../../services/api';
@@ -36,17 +40,20 @@ const OrderHistory = () => {
   const [dateFilter, setDateFilter] = useState('all');
   const [showFilters, setShowFilters] = useState(false);
 
-  // ĐÁNH GIÁ (FE only)
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalOrders, setTotalOrders] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+  const ordersPerPage = 5;
+
+  // ĐÁNH GIÁ - Đánh giá trực tiếp trong OrderHistory
   const [reviewOpen, setReviewOpen] = useState(false);
-  const [reviewItem, setReviewItem] = useState(null); 
-  const [reviewStars, setReviewStars] = useState(5);
+  const [reviewItem, setReviewItem] = useState(null);
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewTitle, setReviewTitle] = useState('');
   const [reviewComment, setReviewComment] = useState('');
-  const [localReviews, setLocalReviews] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('local_reviews') || '{}'); } catch { return {}; }
-  });
-  
-  const isReviewed = (orderId, productId) => !!localReviews?.[makeReviewKey(orderId, productId)];
-  const getReview = (orderId, productId) => localReviews?.[makeReviewKey(orderId, productId)];
+  const [submittingReview, setSubmittingReview] = useState(false);
+  const [productReviews, setProductReviews] = useState({});
 
   const getCurrentUserId = () => {
     try {
@@ -60,78 +67,267 @@ const OrderHistory = () => {
     }
   };
   
-  const makeReviewKey = (orderId, productId) => `${orderId}:${productId}`;
+  // Load reviews cho các sản phẩm đã mua
+  const loadProductReviews = async (productIds) => {
+    if (productIds.length === 0) return;
+    
+    try {
+      const reviewsRes = await api.get('reviews/', {
+        params: { product__in: productIds.join(',') }
+      });
+      const reviews = reviewsRes.data.results || reviewsRes.data;
+      
+      const reviewMap = {};
+      reviews.forEach(review => {
+        reviewMap[review.product] = review;
+      });
+      
+      setProductReviews(reviewMap);
+    } catch (error) {
+      console.error('Error loading reviews:', error);
+    }
+  };
+
+  // Load orders with pagination
+  const loadOrders = async (page = 1, search = '', statusF = 'all', dateF = 'all') => {
+    console.log('🔍 loadOrders called with:', { page, search, statusF, dateF });
+    
+    try {
+      setLoading(true);
+      const uid = getCurrentUserId();
+      console.log('👤 Current user ID:', uid);
+      
+      if (!uid) {
+        setOrders([]);
+        setTotalOrders(0);
+        setTotalPages(0);
+        setLoading(false);
+        return;
+      }
+
+      // Build API params - BỎ user param vì backend tự filter
+      const params = {
+        ordering: '-created_at',
+        page: page,
+        page_size: ordersPerPage
+      };
+
+      // Chỉ thêm status filter nếu không phải 'all'
+      if (statusF !== 'all') {
+        const statusMap = {
+          'processing': 'pending',
+          'shipping': 'shipped', 
+          'delivered': 'delivered',
+          'cancelled': 'cancelled'
+        };
+        params.status = statusMap[statusF] || statusF;
+      }
+
+      console.log('📤 API Params:', params);
+      console.log('🌐 Full URL will be:', `orders/?${new URLSearchParams(params).toString()}`);
+
+      // Gọi API orders
+      const ordersRes = await api.get('orders/', { params });
+      console.log('📥 API Response:', ordersRes.data);
+      
+      let rawOrders = [];
+      let total = 0;
+      
+      if (Array.isArray(ordersRes.data)) {
+        rawOrders = ordersRes.data;
+        total = ordersRes.data.length;
+      } else {
+        rawOrders = ordersRes.data.results || [];
+        total = ordersRes.data.count || 0;
+      }
+
+      console.log('Backend Response:', { 
+        orders: rawOrders.length, 
+        total, 
+        page, 
+        hasNext: ordersRes.data.next,
+        hasPrev: ordersRes.data.previous 
+      });
+
+      // 2) Enrich mỗi đơn với order-details và thông tin product
+      const enriched = await Promise.all(rawOrders.map(async (o) => {
+        const detailsRes = await api.get('order-details/', { 
+          params: { 
+            order: o.id,
+            page_size: 100  // Lấy tất cả order-details cho đơn hàng này
+          } 
+        });
+        const details = Array.isArray(detailsRes.data) ? detailsRes.data : (detailsRes.data.results || []);
+
+        const products = await Promise.all(
+          details.map(d => api.get(`products/${d.product}/`).then(r => r.data).catch(() => null))
+        );
+
+        const items = details.map((d, idx) => {
+          const p = products[idx];
+          return {
+            id: d.id,
+            productId: d.product,
+            name: p?.name || `Sản phẩm #${d.product}`,
+            price: Number(d.unit_price || 0),
+            quantity: d.quantity || 1,
+            image: (p?.images && p.images[0]?.image) || p?.image || '/assets/images/products/giày.jpg',
+            size: d.size || '',
+            color: d.color || ''
+          };
+        });
+
+        const computedTotal = items.reduce((s, it) => s + it.price * it.quantity, 0);
+        const total = Number(o.total || 0) > 0 ? Number(o.total) : computedTotal;
+        
+        // Lấy thông tin mã giảm giá từ order
+        const subtotal = Number(o.subtotal || 0) > 0 ? Number(o.subtotal) : computedTotal;
+        const discount = Number(o.discount_amount || 0);
+        const shipping = Number(o.shipping_fee || 0);
+        const promotionCode = o.promotion_code || null;
+
+        const statusMap = { pending: 'processing', shipped: 'shipping', delivered: 'delivered', cancelled: 'cancelled' };
+        const uiStatus = statusMap[o.status] || 'processing';
+
+        return {
+          id: 'FT' + o.id,
+          rawId: o.id,
+          date: (o.created_at || '').slice(0, 10),
+          status: uiStatus,
+          total,
+          subtotal,
+          discount,
+          shipping,
+          promotionCode,
+          items,
+          payment: { method: o.payment_method || '', status: o.status === 'delivered' ? 'paid' : 'pending' },
+          tracking: null,
+          estimatedDelivery: null,
+          canReview: uiStatus === 'delivered',
+          canReorder: true
+        };
+      }));
+
+      // 3) Chỉ áp dụng client-side filter cho search và date (không phải status)
+      let filteredOrders = enriched;
+      
+      // Search filter - áp dụng trên frontend vì backend không hỗ trợ search theo tên sản phẩm
+      if (search) {
+        filteredOrders = filteredOrders.filter(order => 
+          String(order.id).toLowerCase().includes(search.toLowerCase()) ||
+          order.items.some(item => item.name.toLowerCase().includes(search.toLowerCase()))
+        );
+      }
+
+      // Date filter - áp dụng trên frontend vì backend không có filter date range
+      if (dateF !== 'all') {
+        filteredOrders = filteredOrders.filter(order => {
+          const orderDate = new Date(order.date);
+          const today = new Date();
+          const diffTime = Math.abs(today - orderDate);
+          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+          switch (dateF) {
+            case 'week': return diffDays <= 7;
+            case 'month': return diffDays <= 30;
+            case '3months': return diffDays <= 90;
+            default: return true;
+          }
+        });
+      }
+
+      // 4) Nếu có search hoặc date filter, cần tính lại total và pages
+      let finalTotal = total;
+      let finalPages = Math.ceil(total / ordersPerPage);
+      
+      if (search || dateF !== 'all') {
+        // Khi có filter frontend, cần load tất cả để filter chính xác
+        // Đây là trường hợp đặc biệt, thường thì backend sẽ xử lý
+        finalTotal = filteredOrders.length;
+        finalPages = Math.ceil(finalTotal / ordersPerPage);
+        
+        // Pagination trên frontend filtered results
+        const startIndex = (page - 1) * ordersPerPage;
+        const endIndex = startIndex + ordersPerPage;
+        filteredOrders = filteredOrders.slice(startIndex, endIndex);
+      }
+
+      setOrders(filteredOrders);
+      setTotalOrders(finalTotal);
+      setTotalPages(finalPages);
+      
+      // Load reviews cho tất cả sản phẩm trong orders
+      const allProductIds = filteredOrders.flatMap(order => 
+        order.items.map(item => item.productId)
+      );
+      if (allProductIds.length > 0) {
+        loadProductReviews(allProductIds);
+      }
+      
+      console.log('Final Orders:', filteredOrders.length, 'Total:', finalTotal, 'Pages:', finalPages); // Debug log
+      
+    } catch (e) {
+      console.error('Load orders error:', e?.response?.data || e.message);
+      setOrders([]);
+      setTotalOrders(0);
+      setTotalPages(0);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const loadOrders = async () => {
-      try {
-        const uid = getCurrentUserId();
-        if (!uid) {
-          setOrders([]);
-          setLoading(false);
-          return;
-        }
+    loadOrders(currentPage, searchTerm, statusFilter, dateFilter);
+  }, [currentPage, searchTerm, statusFilter, dateFilter]);
 
-        // 1) Lấy danh sách đơn của user
-        const ordersRes = await api.get('orders/', { params: { user: uid, ordering: '-created_at' } });
-        const rawOrders = Array.isArray(ordersRes.data) ? ordersRes.data : (ordersRes.data.results || []);
+  // Pagination handlers
+  const handlePageChange = (page) => {
+    if (page >= 1 && page <= totalPages) {
+      setCurrentPage(page);
+    }
+  };
 
-        // 2) Enrich mỗi đơn với order-details và thông tin product
-        const enriched = await Promise.all(rawOrders.map(async (o) => {
-          const detailsRes = await api.get('order-details/', { params: { order: o.id } });
-          const details = Array.isArray(detailsRes.data) ? detailsRes.data : (detailsRes.data.results || []);
+  const handleFirstPage = () => setCurrentPage(1);
+  const handleLastPage = () => setCurrentPage(totalPages);
+  const handlePrevPage = () => setCurrentPage(prev => Math.max(prev - 1, 1));
+  const handleNextPage = () => setCurrentPage(prev => Math.min(prev + 1, totalPages));
 
-          const products = await Promise.all(
-            details.map(d => api.get(`products/${d.product}/`).then(r => r.data).catch(() => null))
-          );
-
-          const items = details.map((d, idx) => {
-            const p = products[idx];
-            return {
-              id: d.id,
-              productId: d.product,
-              name: p?.name || `Sản phẩm #${d.product}`,
-              price: Number(d.unit_price || 0),
-              quantity: d.quantity || 1,
-              image: (p?.images && p.images[0]?.image) || p?.image || '/assets/images/products/giày.jpg',
-              size: d.size || '',
-              color: d.color || ''
-            };
-          });
-
-          const computedTotal = items.reduce((s, it) => s + it.price * it.quantity, 0);
-          const total = Number(o.total || 0) > 0 ? Number(o.total) : computedTotal;
-
-          const statusMap = { pending: 'processing', shipped: 'shipping', delivered: 'delivered', cancelled: 'cancelled' };
-          const uiStatus = statusMap[o.status] || 'processing';
-
-          return {
-            id: 'FT' + o.id,
-            rawId: o.id,
-            date: (o.created_at || '').slice(0, 10),
-            status: uiStatus,
-            total,
-            items,
-            shipping: { address: '', method: '', fee: 0 },
-            payment: { method: o.payment_method || '', status: o.status === 'delivered' ? 'paid' : 'pending' },
-            tracking: null,
-            estimatedDelivery: null,
-            canReview: uiStatus === 'delivered',
-            canReorder: true
-          };
-        }));
-
-        setOrders(enriched);
-      } catch (e) {
-        console.error('Load orders error:', e?.response?.data || e.message);
-        setOrders([]);
-      } finally {
-        setLoading(false);
+  // Generate page numbers for pagination
+  const getPageNumbers = () => {
+    const pages = [];
+    const maxVisible = 5;
+    
+    if (totalPages <= maxVisible) {
+      for (let i = 1; i <= totalPages; i++) {
+        pages.push(i);
       }
-    };
+    } else {
+      const start = Math.max(1, currentPage - 2);
+      const end = Math.min(totalPages, start + maxVisible - 1);
+      
+      for (let i = start; i <= end; i++) {
+        pages.push(i);
+      }
+    }
+    
+    return pages;
+  };
 
-    loadOrders();
-  }, []);
+  // Filter handlers
+  const handleSearchChange = (e) => {
+    setSearchTerm(e.target.value);
+    setCurrentPage(1); // Reset to first page when searching
+  };
+
+  const handleStatusFilterChange = (e) => {
+    setStatusFilter(e.target.value);
+    setCurrentPage(1); // Reset to first page when filtering
+  };
+
+  const handleDateFilterChange = (e) => {
+    setDateFilter(e.target.value);
+    setCurrentPage(1); // Reset to first page when filtering
+  };
 
   const formatDate = (dateString) => {
     if (!dateString) return '';
@@ -141,33 +337,6 @@ const OrderHistory = () => {
       year: 'numeric'
     });
   };
-
-  const filteredOrders = orders
-    .filter(order => {
-      const matchesSearch =
-        String(order.id).toLowerCase().includes(searchTerm.toLowerCase()) ||
-        order.items.some(item => item.name.toLowerCase().includes(searchTerm.toLowerCase()));
-
-      const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
-
-      const matchesDate = (() => {
-        if (dateFilter === 'all') return true;
-        const orderDate = new Date(order.date);
-        const today = new Date();
-        const diffTime = Math.abs(today - orderDate);
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-        switch (dateFilter) {
-          case 'week': return diffDays <= 7;
-          case 'month': return diffDays <= 30;
-          case '3months': return diffDays <= 90;
-          default: return true;
-        }
-      })();
-
-      return matchesSearch && matchesStatus && matchesDate;
-    })
-    .sort((a, b) => new Date(b.date) - new Date(a.date));
 
   const handleViewDetail = (orderIdWithPrefix, rawId) => {
     const id = rawId || String(orderIdWithPrefix).replace(/^FT/, '');
@@ -206,7 +375,8 @@ const OrderHistory = () => {
     try {
       const id = rawId || String(orderIdWithPrefix).replace(/^FT/, '');
       await api.post(`orders/${id}/cancel/`);
-      setOrders(prev => prev.map(o => (o.rawId === Number(id) ? { ...o, status: 'cancelled' } : o)));
+      // Reload current page
+      loadOrders(currentPage, searchTerm, statusFilter, dateFilter);
       alert('Đã hủy đơn và hoàn kho thành công.');
     } catch (e) {
       console.error('Cancel order error:', e?.response?.data || e.message);
@@ -218,16 +388,9 @@ const OrderHistory = () => {
     if (!window.confirm('Xác nhận đã nhận được hàng?')) return;
     try {
       const id = rawId || String(orderIdWithPrefix).replace(/^FT/, '');
-      // Cập nhật cả trạng thái đơn và trạng thái thanh toán trên BE
       await api.patch(`orders/${id}/`, { status: 'delivered', payment_status: 'paid' });
-
-      // Cập nhật ngay trên UI để: 1) ẩn nút xác nhận, 2) bật review, 3) set payment = paid
-      setOrders(prev => prev.map(o =>
-        o.rawId === Number(id)
-          ? { ...o, status: 'delivered', canReview: true, payment: { ...(o.payment || {}), status: 'paid' } }
-          : o
-      ));
-
+      // Reload current page
+      loadOrders(currentPage, searchTerm, statusFilter, dateFilter);
       alert('Xác nhận nhận hàng thành công.');
     } catch (e) {
       console.error('Confirm received error:', e?.response?.data || e.message);
@@ -235,43 +398,46 @@ const OrderHistory = () => {
     }
   };
 
-  const openReview = (orderId, item) => {
-    setReviewItem({...item, orderId: orderId});
-    setReviewStars(5);
+  const openReview = (item) => {
+    setReviewItem(item);
+    setReviewRating(5);
+    setReviewTitle(`Đánh giá ${item.name}`);
     setReviewComment('');
     setReviewOpen(true);
   };
 
   const submitReview = async () => {
     if (!reviewItem?.productId) return;
+    
+    setSubmittingReview(true);
     try {
-      const token = localStorage.getItem('access_token');
-      await api.post(
-        `products/${reviewItem.productId}/rate/`,
-        { rating: Number(reviewStars) || 5, comment: String(reviewComment || '') },
-        token ? { headers: { Authorization: `Bearer ${token}` } } : {}
-      );
+      await api.post('reviews/', {
+        product: reviewItem.productId,
+        rating: reviewRating,
+        title: reviewTitle,
+        comment: reviewComment
+      });
   
-      const key = makeReviewKey(reviewItem.orderId, reviewItem.productId);
-      const next = {
-        ...localReviews,
-        [key]: {
-          stars: Number(reviewStars) || 5,
-          comment: String(reviewComment || ''),
-          at: new Date().toISOString(),
-          name: reviewItem.name || '',
-          image: reviewItem.image || ''
-        }
-      };
-      setLocalReviews(next);
-      localStorage.setItem('local_reviews', JSON.stringify(next));
+      // Reload reviews để cập nhật UI
+      const allProductIds = orders.flatMap(order => 
+        order.items.map(item => item.productId)
+      );
+      if (allProductIds.length > 0) {
+        loadProductReviews(allProductIds);
+      }
   
       setReviewOpen(false);
       setReviewItem(null);
       alert('Đánh giá thành công. Cảm ơn bạn!');
     } catch (e) {
       console.error('Submit review error:', e?.response?.data || e.message);
-      alert(e?.response?.data?.detail || 'Gửi đánh giá thất bại.');
+      if (e?.response?.status === 400) {
+        alert('Bạn đã đánh giá sản phẩm này rồi!');
+      } else {
+        alert('Gửi đánh giá thất bại. Vui lòng thử lại.');
+      }
+    } finally {
+      setSubmittingReview(false);
     }
   };
 
@@ -298,7 +464,7 @@ const OrderHistory = () => {
                 <FaReceipt className="oh-title-icon" />
                 Lịch sử đơn hàng
               </h1>
-              <p>{orders.length} đơn hàng</p>
+              <p>{totalOrders} đơn hàng • Trang {currentPage}/{totalPages}</p>
             </div>
 
             <div className="oh-header-stats">
@@ -314,7 +480,7 @@ const OrderHistory = () => {
                 <span className="oh-stat-number">
                   {orders.reduce((sum, order) => sum + order.total, 0).toLocaleString('vi-VN')}đ
                 </span>
-                <span className="oh-stat-label">Tổng chi tiêu</span>
+                <span className="oh-stat-label">Tổng trang này</span>
               </div>
             </div>
           </div>
@@ -327,7 +493,7 @@ const OrderHistory = () => {
               type="text"
               placeholder="Tìm kiếm theo mã đơn hàng hoặc tên sản phẩm..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={handleSearchChange}
             />
           </div>
 
@@ -342,7 +508,7 @@ const OrderHistory = () => {
             <div className="oh-filter-options">
               <div className="oh-filter-group">
                 <label>Trạng thái:</label>
-                <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+                <select value={statusFilter} onChange={handleStatusFilterChange}>
                   <option value="all">Tất cả</option>
                   <option value="processing">Đang xử lý</option>
                   <option value="shipping">Đang giao</option>
@@ -353,7 +519,7 @@ const OrderHistory = () => {
 
               <div className="oh-filter-group">
                 <label>Thời gian:</label>
-                <select value={dateFilter} onChange={(e) => setDateFilter(e.target.value)}>
+                <select value={dateFilter} onChange={handleDateFilterChange}>
                   <option value="all">Tất cả</option>
                   <option value="week">7 ngày qua</option>
                   <option value="month">30 ngày qua</option>
@@ -364,7 +530,7 @@ const OrderHistory = () => {
           )}
         </div>
 
-        {filteredOrders.length === 0 ? (
+        {orders.length === 0 ? (
           <div className="oh-no-orders">
             <FaClipboardList className="oh-no-orders-icon" />
             <h3>Không tìm thấy đơn hàng nào</h3>
@@ -380,161 +546,260 @@ const OrderHistory = () => {
             )}
           </div>
         ) : (
-          <div className="oh-orders-list">
-            {filteredOrders.map(order => {
-              const { label, className, Icon: StatusIcon } = getStatusMeta(order.status);
+          <>
+            <div className="oh-orders-list">
+              {orders.map(order => {
+                const { label, className, Icon: StatusIcon } = getStatusMeta(order.status);
 
-              return (
-                <div key={order.id} className="oh-order-card">
-                  <div className="oh-order-header">
-                    <div className="oh-order-info">
-                      <h3>Đơn hàng #{order.id}</h3>
-                      <div className="oh-order-meta">
-                        <span className="oh-order-date">
-                          <FaCalendarAlt /> {formatDate(order.date)}
-                        </span>
-                        <span className={`oh-order-status ${className}`}>
-                          <StatusIcon />
-                          {label}
-                        </span>
+                return (
+                  <div key={order.id} className="oh-order-card">
+                    <div className="oh-order-header">
+                      <div className="oh-order-info">
+                        <h3>Đơn hàng #{order.id}</h3>
+                        <div className="oh-order-meta">
+                          <span className="oh-order-date">
+                            <FaCalendarAlt /> {formatDate(order.date)}
+                          </span>
+                          <span className={`oh-order-status ${className}`}>
+                            <StatusIcon />
+                            {label}
+                          </span>
+                          {order.promotionCode && (
+                            <span className="oh-order-promotion">
+                              🏷️ {order.promotionCode}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="oh-order-total">
+                        {order.discount > 0 ? (
+                          <div className="oh-order-pricing">
+                            <div className="oh-original-total">{order.subtotal.toLocaleString('vi-VN')}đ</div>
+                            <div className="oh-discount">-{order.discount.toLocaleString('vi-VN')}đ</div>
+                            <div className="oh-final-total">{order.total.toLocaleString('vi-VN')}đ</div>
+                          </div>
+                        ) : (
+                          <div className="oh-final-total">{order.total.toLocaleString('vi-VN')}đ</div>
+                        )}
                       </div>
                     </div>
 
-                    <div className="oh-order-total">
-                      {order.total.toLocaleString('vi-VN')}đ
+                    <div className="oh-order-items">
+                      {order.items.map(item => {
+                        const existingReview = productReviews[item.productId];
+                        return (
+                          <div key={item.id} className="oh-order-item">
+                            <img src={item.image} alt={item.name} />
+                            <div className="oh-item-details">
+                              <h4>{item.name}</h4>
+                              <div className="oh-item-specs">
+                                Size: {item.size || '-'} | Màu: {item.color || '-'} | SL: {item.quantity}
+                              </div>
+                              <div className="oh-item-price">
+                                {item.price.toLocaleString('vi-VN')}đ
+                              </div>
+
+                              {order.status === 'delivered' && !existingReview && (
+                                <button
+                                  className="oh-review-btn"
+                                  onClick={() => openReview(item)}
+                                >
+                                  Đánh giá sản phẩm
+                                </button>
+                              )}
+
+                              {order.status === 'delivered' && existingReview && (
+                                <div style={{ marginTop: 8, color: '#f59e0b', fontWeight: 600 }}>
+                                  Đã đánh giá: {'★'.repeat(existingReview.rating)}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    <div className="oh-order-actions">
+                      <Link
+                        to="#"
+                        className="oh-view-detail-btn"
+                        onClick={(e)=>{ e.preventDefault(); handleViewDetail(order.id, order.rawId); }}
+                      >
+                        <FaEye /> Chi tiết
+                      </Link>
+
+                      {order.canReorder && (
+                        <button
+                          className="oh-reorder-btn"
+                          onClick={() => handleReorder(order.id, order.rawId)}
+                        >
+                          <FaShoppingCart /> Mua lại
+                        </button>
+                      )}
+
+                      {order.status === 'processing' && (
+                        <button
+                          className="oh-cancel-btn"
+                          onClick={() => handleCancelOrder(order.id, order.rawId)}
+                        >
+                          <FaTimes /> Hủy đơn
+                        </button>
+                      )}
+
+                      {order.status === 'shipping' && (
+                        <button
+                          className='oh-confirm-btn'
+                          onClick={() => handleConfirmReceived(order.id, order.rawId)}
+                        >
+                          <FaCheck /> Xác nhận nhận hàng
+                        </button>
+                      )}
                     </div>
                   </div>
+                );
+              })}
+            </div>
 
-                  <div className="oh-order-items">
-                    {order.items.map(item => {
-                      const saved = getReview(order.rawId, item.productId);
-                      return (
-                        <div key={item.id} className="oh-order-item">
-                          <img src={item.image} alt={item.name} />
-                          <div className="oh-item-details">
-                            <h4>{item.name}</h4>
-                            <div className="oh-item-specs">
-                              Size: {item.size || '-'} | Màu: {item.color || '-'} | SL: {item.quantity}
-                            </div>
-                            <div className="oh-item-price">
-                              {item.price.toLocaleString('vi-VN')}đ
-                            </div>
-
-                            {order.status === 'delivered' && !isReviewed(order.rawId, item.productId) && (
-                              <button
-                                className="oh-review-btn"
-                                onClick={() => openReview(order.rawId, item)}
-                              >
-                                Đánh giá sản phẩm
-                              </button>
-                            )}
-
-                            {order.status === 'delivered' && isReviewed(order.rawId, item.productId) && (
-                              <div style={{ marginTop: 8, color: '#f59e0b', fontWeight: 600 }}>
-                                Đã đánh giá: {'★'.repeat(saved?.stars || 5)}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  <div className="oh-order-actions">
-                    <Link
-                      to="#"
-                      className="oh-view-detail-btn"
-                      onClick={(e)=>{ e.preventDefault(); handleViewDetail(order.id, order.rawId); }}
-                    >
-                      <FaEye /> Chi tiết
-                    </Link>
-
-                    {order.canReorder && (
-                      <button
-                        className="oh-reorder-btn"
-                        onClick={() => handleReorder(order.id, order.rawId)}
-                      >
-                        <FaShoppingCart /> Mua lại
-                      </button>
-                    )}
-
-                    {order.status === 'processing' && (
-                      <button
-                        className="oh-cancel-btn"
-                        onClick={() => handleCancelOrder(order.id, order.rawId)}
-                      >
-                        <FaTimes /> Hủy đơn
-                      </button>
-                    )}
-
-                    {order.status === 'shipping' && (
-                      <button
-                        className='oh-confirm-btn'
-                        onClick={() => handleConfirmReceived(order.id, order.rawId)}
-                      >
-                        <FaCheck /> Xác nhận nhận hàng
-                      </button>
-                    )}
-                  </div>
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="oh-pagination">
+                <div className="oh-pagination-info">
+                  Hiển thị {((currentPage - 1) * ordersPerPage) + 1}-{Math.min(currentPage * ordersPerPage, totalOrders)} trong {totalOrders} đơn hàng
                 </div>
-              );
-            })}
-          </div>
+                
+                <div className="oh-pagination-controls">
+                  <button 
+                    onClick={handleFirstPage} 
+                    disabled={currentPage === 1}
+                    className="oh-pagination-btn oh-pagination-first"
+                    title="Trang đầu"
+                  >
+                    <FaAngleDoubleLeft />
+                  </button>
+                  
+                  <button 
+                    onClick={handlePrevPage} 
+                    disabled={currentPage === 1}
+                    className="oh-pagination-btn oh-pagination-prev"
+                    title="Trang trước"
+                  >
+                    <FaChevronLeft />
+                  </button>
+
+                  <div className="oh-pagination-numbers">
+                    {getPageNumbers().map(page => (
+                      <button
+                        key={page}
+                        onClick={() => handlePageChange(page)}
+                        className={`oh-pagination-btn oh-pagination-number ${currentPage === page ? 'oh-active' : ''}`}
+                      >
+                        {page}
+                      </button>
+                    ))}
+                  </div>
+
+                  <button 
+                    onClick={handleNextPage} 
+                    disabled={currentPage === totalPages}
+                    className="oh-pagination-btn oh-pagination-next"
+                    title="Trang sau"
+                  >
+                    <FaChevronRight />
+                  </button>
+                  
+                  <button 
+                    onClick={handleLastPage} 
+                    disabled={currentPage === totalPages}
+                    className="oh-pagination-btn oh-pagination-last"
+                    title="Trang cuối"
+                  >
+                    <FaAngleDoubleRight />
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
 
-      {/* Modal đánh giá */}
-      {reviewOpen && (
-        <div className="oh-modal-overlay" style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.4)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1000 }}>
-          <div className="oh-modal" style={{ background:'#fff', borderRadius:12, width:'90%', maxWidth:520, padding:20 }}>
-            <h3 style={{ marginTop:0, marginBottom:12 }}>Đánh giá sản phẩm</h3>
-            <div style={{ display:'flex', gap:12, alignItems:'center', marginBottom:12 }}>
-              {reviewItem?.image && <img src={reviewItem.image} alt={reviewItem?.name} style={{ width:60, height:60, objectFit:'cover', borderRadius:8 }} />}
-              <div style={{ fontWeight:600 }}>{reviewItem?.name}</div>
+      {/* Modal đánh giá - Đánh giá trực tiếp */}
+      {reviewOpen && reviewItem && (
+        <div className="oh-modal-overlay" style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1000 }}>
+          <div className="oh-modal" style={{ background:'#fff', borderRadius:16, width:'90%', maxWidth:500, padding:0, overflow:'hidden' }}>
+            <div style={{ padding:'1.5rem', borderBottom:'1px solid #e2e8f0', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+              <h3 style={{ margin:0, fontSize:'1.25rem', fontWeight:600, color:'#2d3748' }}>Đánh giá sản phẩm</h3>
+              <button onClick={()=>{ setReviewOpen(false); setReviewItem(null); }} style={{ background:'none', border:'none', fontSize:'1.2rem', color:'#718096', cursor:'pointer', padding:'0.5rem', borderRadius:'50%' }}>
+                ✕
+              </button>
             </div>
 
-            <div style={{ marginBottom:12 }}>
-              <div style={{ marginBottom:6, fontWeight:600 }}>Số sao</div>
+            <div style={{ padding:'1.5rem', background:'#f7fafc', borderBottom:'1px solid #e2e8f0', display:'flex', alignItems:'center', gap:'1rem' }}>
+              <img src={reviewItem.image} alt={reviewItem.name} style={{ width:60, height:60, objectFit:'cover', borderRadius:8 }} />
               <div>
-                {[1,2,3,4,5].map(s => (
-                  <button
-                    key={s}
-                    onClick={() => setReviewStars(s)}
-                    style={{
-                      cursor:'pointer',
-                      fontSize:20,
-                      marginRight:6,
-                      color: s <= reviewStars ? '#f59e0b' : '#d1d5db',
-                      background:'transparent',
-                      border:'none'
-                    }}
-                    aria-label={`${s} sao`}
-                  >
-                    ★
-                  </button>
-                ))}
+                <h4 style={{ margin:'0 0 0.25rem 0', fontSize:'1rem', fontWeight:600, color:'#2d3748' }}>{reviewItem.name}</h4>
+                <p style={{ margin:0, fontSize:'0.85rem', color:'#718096' }}>Sản phẩm đã mua</p>
               </div>
             </div>
 
-            <div style={{ marginBottom:16 }}>
-              <div style={{ marginBottom:6, fontWeight:600 }}>Nhận xét (tuỳ chọn)</div>
-              <textarea
-                rows={4}
-                value={reviewComment}
-                onChange={(e)=>setReviewComment(e.target.value)}
-                placeholder="Chia sẻ cảm nhận của bạn..."
-                style={{ width:'100%', border:'1px solid #e5e7eb', borderRadius:8, padding:10, outline:'none' }}
-              />
-            </div>
+            <form onSubmit={(e)=>{ e.preventDefault(); submitReview(); }} style={{ padding:'1.5rem' }}>
+              <div style={{ marginBottom:'1.5rem' }}>
+                <label style={{ display:'block', marginBottom:'0.75rem', fontWeight:600, color:'#4a5568' }}>Đánh giá của bạn:</label>
+                <div style={{ display:'flex', gap:'0.25rem', marginBottom:'0.5rem' }}>
+                  {[1,2,3,4,5].map(star => (
+                    <button
+                      key={star}
+                      type="button"
+                      onClick={() => setReviewRating(star)}
+                      style={{
+                        cursor:'pointer',
+                        fontSize:'1.5rem',
+                        color: star <= reviewRating ? '#fbbf24' : '#e2e8f0',
+                        background:'transparent',
+                        border:'none',
+                        transition:'color 0.2s ease'
+                      }}
+                    >
+                      ★
+                    </button>
+                  ))}
+                </div>
+                {reviewRating > 0 && <span style={{ color:'#667eea', fontWeight:600, fontSize:'0.9rem' }}>{reviewRating} sao</span>}
+              </div>
 
-            <div style={{ display:'flex', justifyContent:'flex-end', gap:8 }}>
-              <button onClick={()=>{ setReviewOpen(false); setReviewItem(null); }} style={{ padding:'8px 14px', border:'1px solid #e5e7eb', borderRadius:8, background:'#fff', cursor:'pointer' }}>
-                Huỷ
-              </button>
-              <button onClick={submitReview} style={{ padding:'8px 14px', border:'none', borderRadius:8, background:'#667eea', color:'#fff', cursor:'pointer' }}>
-                Gửi đánh giá
-              </button>
-            </div>
+              <div style={{ marginBottom:'1.5rem' }}>
+                <label style={{ display:'block', marginBottom:'0.5rem', fontWeight:600, color:'#4a5568' }}>Tiêu đề đánh giá:</label>
+                <input
+                  type="text"
+                  value={reviewTitle}
+                  onChange={(e) => setReviewTitle(e.target.value)}
+                  placeholder="Nhập tiêu đề đánh giá..."
+                  required
+                  style={{ width:'100%', padding:'0.75rem', border:'1px solid #e2e8f0', borderRadius:8, fontSize:'0.9rem' }}
+                />
+              </div>
+
+              <div style={{ marginBottom:'1.5rem' }}>
+                <label style={{ display:'block', marginBottom:'0.5rem', fontWeight:600, color:'#4a5568' }}>Nhận xét chi tiết:</label>
+                <textarea
+                  value={reviewComment}
+                  onChange={(e) => setReviewComment(e.target.value)}
+                  placeholder="Chia sẻ trải nghiệm của bạn về sản phẩm..."
+                  rows={4}
+                  required
+                  style={{ width:'100%', padding:'0.75rem', border:'1px solid #e2e8f0', borderRadius:8, fontSize:'0.9rem', resize:'vertical' }}
+                />
+              </div>
+
+              <div style={{ display:'flex', justifyContent:'flex-end', gap:'1rem', marginTop:'2rem' }}>
+                <button type="button" onClick={()=>{ setReviewOpen(false); setReviewItem(null); }} style={{ background:'#f7fafc', color:'#4a5568', border:'1px solid #e2e8f0', padding:'0.75rem 1.5rem', borderRadius:8, fontWeight:600, cursor:'pointer' }}>
+                  Hủy
+                </button>
+                <button type="submit" disabled={submittingReview} style={{ background:submittingReview ? '#a0aec0' : '#667eea', color:'white', border:'none', padding:'0.75rem 1.5rem', borderRadius:8, fontWeight:600, cursor:submittingReview ? 'not-allowed' : 'pointer' }}>
+                  {submittingReview ? 'Đang gửi...' : 'Gửi đánh giá'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
