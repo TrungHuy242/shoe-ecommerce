@@ -28,11 +28,17 @@ import Register from './features/auth/Register';
 import AdminLayout from './features/admin/AdminLayout';
 import ManagePromotions from './features/admin/ManagePromotions/ManagePromotions';
 import Account from './features/user/Account/Account';
+import Settings from './features/user/Settings/Settings';
+import ShippingAddresses from './features/user/ShippingAddresses/ShippingAddresses';
 import Men from './features/user/Men/Men';
 import Women from './features/user/Women/Women';
 import Sandals from './features/user/Sandals/Sandals';
 import Deals from './features/user/Deals/Deals';
 import CategoryProducts from './features/user/CategoryProducts/CategoryProducts';
+import ForgotPassword from './features/auth/ForgotPassword';
+import ResetPassword from './features/auth/ResetPassword';
+import Notifications from './features/user/Notifications/Notifications';
+import AIChatbotDashboard from './features/admin/AIChatbotDashboard/AIChatbotDashboard';
 import { useAuth } from './context/AuthContext';
 
 function AppRoutes() {
@@ -69,12 +75,17 @@ function AppRoutes() {
         <Route path="/orders" element={isLoggedIn ? <OrderHistory /> : <Navigate to="/login" />} />
         <Route path="/order/:id" element={isLoggedIn ? <OrderDetail /> : <Navigate to="/login" />} />
         <Route path="/account" element={isLoggedIn ? <Account /> : <Navigate to="/login" />} />
+        <Route path="/settings" element={isLoggedIn ? <Settings /> : <Navigate to="/login" />} />
+        <Route path="/shipping-addresses" element={isLoggedIn ? <ShippingAddresses /> : <Navigate to="/login" />} />
+        <Route path="/notifications" element={isLoggedIn ? <Notifications /> : <Navigate to="/login" />} />
         <Route path="/men" element={<Men />} />
         <Route path="/women" element={<Women />} />
         <Route path="/sandals" element={<Sandals />} />
         <Route path="/deals" element={<Deals />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
 
         {/* Admin Routes */}
         <Route path="/admin/*" element={<AdminRoute><AdminLayout /></AdminRoute>}>
@@ -90,6 +101,7 @@ function AppRoutes() {
           <Route path="sizes" element={<ManageSizes />} />
           <Route path="colors" element={<ManageColors />} />
           <Route path="promotions" element={<ManagePromotions />} />
+          <Route path="ai-chatbot" element={<AIChatbotDashboard />} />
         </Route>
       </Routes>
       {!isAdmin && !isLoginPage && !isRegisterPage && <Footer />}

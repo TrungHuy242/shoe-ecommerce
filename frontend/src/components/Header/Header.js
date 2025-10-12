@@ -1,6 +1,6 @@
 // src/components/Header/Header.js
 import { Link, useNavigate } from "react-router-dom";
-import { Heart, ShoppingCart, Search, User, X } from "lucide-react";
+import { Bell, ShoppingCart, Search, User, X } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { useCart } from "../../context/CartContext";
@@ -18,6 +18,11 @@ const Header = () => {
   const [isSearching, setIsSearching] = useState(false);
   const searchRef = useRef(null);
   const searchTimeoutRef = useRef(null);
+  
+  // Notification states
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   const toggleDropdown = () => {
     setShowDropdown(!showDropdown);
@@ -76,6 +81,60 @@ const Header = () => {
     setShowSearchResults(false);
   };
 
+  // Notification functions
+  const fetchNotifications = async () => {
+    if (!isLoggedIn) return;
+    
+    try {
+      const response = await api.get('notifications/?page_size=5');
+      const notificationsData = response.data.results || response.data;
+      setNotifications(notificationsData);
+    } catch (error) {
+      console.error('Error fetching notifications:', error);
+    }
+  };
+
+  const fetchUnreadCount = async () => {
+    if (!isLoggedIn) return;
+    
+    try {
+      const response = await api.get('notifications/unread_count/');
+      const count = response.data.unread_count || 0;
+      setUnreadCount(count);
+    } catch (error) {
+      console.error('Error fetching unread count:', error);
+    }
+  };
+
+  const markAsRead = async (notificationId) => {
+    try {
+      await api.post(`notifications/${notificationId}/mark_read/`);
+      setNotifications(prev => 
+        prev.map(notif => 
+          notif.id === notificationId 
+            ? { ...notif, is_read: true }
+            : notif
+        )
+      );
+      setUnreadCount(prev => Math.max(0, prev - 1));
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
+    }
+  };
+
+  const markAllAsRead = async () => {
+    try {
+      await api.post('notifications/mark_all_read/');
+      setNotifications(prev => 
+        prev.map(notif => ({ ...notif, is_read: true }))
+      );
+      setUnreadCount(0);
+    } catch (error) {
+      console.error('Error marking all notifications as read:', error);
+    }
+  };
+
+
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (!event.target.closest(".user-account-header")) {
@@ -84,10 +143,32 @@ const Header = () => {
       if (!event.target.closest(".search-container")) {
         setShowSearchResults(false);
       }
+      // Đóng notification dropdown khi click bên ngoài
+      if (!event.target.closest(".notification-section-header")) {
+        setShowNotifications(false);
+      }
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  // Load notifications when user is logged in
+  useEffect(() => {
+    if (isLoggedIn) {
+      fetchNotifications();
+      fetchUnreadCount();
+      
+      // Refresh notifications every 30 seconds
+      const interval = setInterval(() => {
+        fetchUnreadCount();
+      }, 30000);
+      
+      return () => clearInterval(interval);
+    } else {
+      setNotifications([]);
+      setUnreadCount(0);
+    }
+  }, [isLoggedIn]);
 
   // Cleanup timeout on unmount
   useEffect(() => {
@@ -188,9 +269,114 @@ const Header = () => {
               </div>
             )}
           </div>
-          <Link to="/wishlist" className="icon-btn-header">
-            <Heart size={22} />
-          </Link>
+          <div className="notification-section-header">
+            <button className="icon-btn-header notification-btn" onClick={() => {
+              setShowNotifications(!showNotifications);
+            }}>
+              <Bell size={22} />
+              {unreadCount > 0 && (
+                <span className="notification-count">{unreadCount}</span>
+              )}
+            </button>
+            
+            {/* Notification Dropdown */}
+            {showNotifications && (
+              <div className="notification-dropdown">
+                <div className="notification-dropdown-header">
+                  <h3>Thông báo</h3>
+                  {unreadCount > 0 && (
+                    <button 
+                      className="mark-all-read-btn"
+                      onClick={markAllAsRead}
+                    >
+                      Đánh dấu tất cả đã đọc
+                    </button>
+                  )}
+                </div>
+                
+                <div className="notification-list">
+                  {notifications.length > 0 ? (
+                    notifications.map((notification) => (
+                      <div 
+                        key={notification.id}
+                        className={`notification-item ${!notification.is_read ? 'unread' : ''}`}
+                        onClick={() => markAsRead(notification.id)}
+                      >
+                        {/* Left side - Image */}
+                        <div className="notification-left">
+                          {notification.product_image ? (
+                            <div className="notification-image">
+                              <img 
+                                src={notification.product_image} 
+                                alt={notification.related_product_name || 'Sản phẩm'}
+                                onError={(e) => {
+                                  e.target.style.display = 'none';
+                                }}
+                              />
+                            </div>
+                          ) : (
+                            <div className="notification-icon">
+                              🔔
+                            </div>
+                          )}
+                          {!notification.is_read && (
+                            <div className="unread-indicator"></div>
+                          )}
+                        </div>
+                        
+                        {/* Right side - Content */}
+                        <div className="notification-right">
+                          <div className="notification-header">
+                            <h3 className="notification-title">{notification.title}</h3>
+                            <span className="notification-time">
+                              {new Date(notification.created_at).toLocaleString('vi-VN')}
+                            </span>
+                          </div>
+                          
+                          <p className="notification-message">{notification.message}</p>
+                          
+                          {/* Product Info */}
+                          {notification.related_product_name && (
+                            <div className="notification-product-info">
+                              <span className="product-name">{notification.related_product_name}</span>
+                              {notification.related_product_price && (
+                                <span className="product-price">
+                                  {Number(notification.related_product_price).toLocaleString('vi-VN')}đ
+                                </span>
+                              )}
+                            </div>
+                          )}
+                          
+                          {/* Action Button */}
+                          {notification.action_button_text && notification.action_url && (
+                            <button 
+                              className="notification-action-btn"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                window.location.href = notification.action_url;
+                              }}
+                            >
+                              {notification.action_button_text}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="no-notifications">
+                      <p>Không có thông báo nào</p>
+                    </div>
+                  )}
+                </div>
+                
+                <div className="notification-footer">
+                  <Link to="/notifications" onClick={() => setShowNotifications(false)}>
+                    Xem tất cả thông báo
+                  </Link>
+                </div>
+              </div>
+            )}
+          </div>
           <Link to="/cart" className="icon-btn-header cart-btn-header">
             <ShoppingCart size={22} />
             {cartCount > 0 && (
@@ -212,6 +398,9 @@ const Header = () => {
                     </Link>
                     <Link to="/wishlist" className="dropdown-item-header" onClick={() => setShowDropdown(false)}>
                       Sản phẩm yêu thích
+                    </Link>
+                    <Link to="/notifications" className="dropdown-item-header" onClick={() => setShowDropdown(false)}>
+                      Tất cả thông báo
                     </Link>
                     <Link to="/settings" className="dropdown-item-header" onClick={() => setShowDropdown(false)}>
                       Cài đặt tài khoản

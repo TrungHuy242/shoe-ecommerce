@@ -16,7 +16,8 @@ Including another URLconf
 """
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from core.views import ProductViewSet, CategoryViewSet, BrandViewSet, BannerViewSet, ImageViewSet, PromotionViewSet, CartItemViewSet, CartViewSet, OrderViewSet, OrderDetailViewSet ,PaymentViewSet, WishlistViewSet, NotificationViewSet, CustomTokenObtainPairView,RegisterView, SizeViewSet, ColorViewSet, GenderViewSet, UserViewSet, ReviewViewSet
+from core.views import ProductViewSet, CategoryViewSet, BrandViewSet, BannerViewSet, ImageViewSet, PromotionViewSet, CartItemViewSet, CartViewSet, OrderViewSet, OrderDetailViewSet ,PaymentViewSet, WishlistViewSet, NotificationViewSet, CustomTokenObtainPairView,RegisterView, SizeViewSet, ColorViewSet, GenderViewSet, UserViewSet, ReviewViewSet, ChangePasswordView, ForgotPasswordView, ValidateResetTokenView, ResetPasswordView, ShippingAddressViewSet
+from core.ai_service.views import AIChatView, AILogsView
 from rest_framework_simplejwt.views import TokenRefreshView
 from django.conf import settings
 from django.conf.urls.static import static
@@ -52,7 +53,7 @@ router.register(r'orders', OrderViewSet),
 router.register(r'order-details', OrderDetailViewSet),
 router.register(r'payments', PaymentViewSet),
 router.register(r'wishlists', WishlistViewSet),
-router.register(r'notifications', NotificationViewSet),
+router.register(r'notifications', NotificationViewSet, basename='notification'),
 # FAQ endpoints removed
 # Chatbot endpoints disabled per request
 router.register(r'sizes', SizeViewSet)
@@ -60,16 +61,24 @@ router.register(r'colors', ColorViewSet)
 router.register(r'genders', GenderViewSet)
 router.register(r'users', UserViewSet)
 router.register(r'reviews', ReviewViewSet)
+router.register(r'shipping-addresses', ShippingAddressViewSet, basename='shippingaddress')
 
 
 
 urlpatterns = [
     path('api/', include(router.urls)),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
-    # Chatbot endpoints removed
+    # AI Service endpoints (Advanced Footy Chatbot)
+    path('api/ai/chat/', AIChatView.as_view(), name='ai-chat'),
+    path('api/ai/logs/', AILogsView.as_view(), name='ai-logs'),
     path('api/token/', CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/register/', RegisterView.as_view(), name='register'),
     path('api/products/check-availability/', ProductAvailabilityView.as_view(), name='product-availability'),
     path('api/orders/check-status/', OrderStatusView.as_view(), name='order-status'),
+    # Password management endpoints
+    path('api/change-password/', ChangePasswordView.as_view(), name='change-password'),
+    path('api/forgot-password/', ForgotPasswordView.as_view(), name='forgot-password'),
+    path('api/validate-reset-token/', ValidateResetTokenView.as_view(), name='validate-reset-token'),
+    path('api/reset-password/', ResetPasswordView.as_view(), name='reset-password'),
     # Removed: path('api/promotions/validate/', ValidatePromotionView.as_view(), name='validate-promotion'),
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

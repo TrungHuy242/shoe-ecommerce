@@ -8,8 +8,13 @@ export async function listOrders(params = {}) {
 
 export async function getUser(userId) {
   if (!userId && userId !== 0) return null;
+  
+  // Handle both user ID and user object
+  const actualUserId = typeof userId === 'object' ? userId.id : userId;
+  if (!actualUserId && actualUserId !== 0) return null;
+  
   try {
-    const res = await api.get(`users/${userId}/`);
+    const res = await api.get(`users/${actualUserId}/`);
     return res.data || null;
   } catch {
     return null;

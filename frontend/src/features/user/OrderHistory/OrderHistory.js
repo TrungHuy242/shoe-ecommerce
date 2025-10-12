@@ -23,6 +23,7 @@ import api from '../../../services/api';
 const getStatusMeta = (status) => {
   switch (status) {
     case 'processing': return { label: 'Đang xử lý', className: 'processing', Icon: FaClipboardList };
+    case 'confirmed':  return { label: 'Đã xác nhận', className: 'confirmed',  Icon: FaCheck };
     case 'shipping':   return { label: 'Đang giao',   className: 'shipping',   Icon: FaTruck };
     case 'delivered':  return { label: 'Đã giao',     className: 'delivered',  Icon: FaCheck };
     case 'cancelled':  return { label: 'Đã hủy',      className: 'cancelled',  Icon: FaTimes };
@@ -72,16 +73,27 @@ const OrderHistory = () => {
     if (productIds.length === 0) return;
     
     try {
+      const currentUserId = getCurrentUserId();
+      if (!currentUserId) return;
+      
+      console.log('🔍 Loading reviews for products:', productIds, 'User:', currentUserId);
+      
       const reviewsRes = await api.get('reviews/', {
-        params: { product__in: productIds.join(',') }
+        params: { 
+          product__in: productIds.join(','),
+          user: currentUserId  // Chỉ lấy reviews của user hiện tại
+        }
       });
       const reviews = reviewsRes.data.results || reviewsRes.data;
+      
+      console.log('📥 Reviews API Response:', reviews);
       
       const reviewMap = {};
       reviews.forEach(review => {
         reviewMap[review.product] = review;
       });
       
+      console.log('🗂️ Review Map:', reviewMap);
       setProductReviews(reviewMap);
     } catch (error) {
       console.error('Error loading reviews:', error);
@@ -90,12 +102,10 @@ const OrderHistory = () => {
 
   // Load orders with pagination
   const loadOrders = async (page = 1, search = '', statusF = 'all', dateF = 'all') => {
-    console.log('🔍 loadOrders called with:', { page, search, statusF, dateF });
     
     try {
       setLoading(true);
       const uid = getCurrentUserId();
-      console.log('👤 Current user ID:', uid);
       
       if (!uid) {
         setOrders([]);
@@ -116,6 +126,7 @@ const OrderHistory = () => {
       if (statusF !== 'all') {
         const statusMap = {
           'processing': 'pending',
+          'confirmed': 'confirmed',
           'shipping': 'shipped', 
           'delivered': 'delivered',
           'cancelled': 'cancelled'
@@ -123,12 +134,8 @@ const OrderHistory = () => {
         params.status = statusMap[statusF] || statusF;
       }
 
-      console.log('📤 API Params:', params);
-      console.log('🌐 Full URL will be:', `orders/?${new URLSearchParams(params).toString()}`);
-
       // Gọi API orders
       const ordersRes = await api.get('orders/', { params });
-      console.log('📥 API Response:', ordersRes.data);
       
       let rawOrders = [];
       let total = 0;
@@ -141,13 +148,6 @@ const OrderHistory = () => {
         total = ordersRes.data.count || 0;
       }
 
-      console.log('Backend Response:', { 
-        orders: rawOrders.length, 
-        total, 
-        page, 
-        hasNext: ordersRes.data.next,
-        hasPrev: ordersRes.data.previous 
-      });
 
       // 2) Enrich mỗi đơn với order-details và thông tin product
       const enriched = await Promise.all(rawOrders.map(async (o) => {
@@ -186,8 +186,33 @@ const OrderHistory = () => {
         const shipping = Number(o.shipping_fee || 0);
         const promotionCode = o.promotion_code || null;
 
-        const statusMap = { pending: 'processing', shipped: 'shipping', delivered: 'delivered', cancelled: 'cancelled' };
+        const statusMap = { 
+          pending: 'processing', 
+          confirmed: 'confirmed', 
+          shipped: 'shipping', 
+          delivered: 'delivered', 
+          cancelled: 'cancelled' 
+        };
         const uiStatus = statusMap[o.status] || 'processing';
+
+        // Load reviews cho đơn hàng này - chỉ lấy reviews của user hiện tại cho các sản phẩm trong đơn hàng này
+        let orderReviews = [];
+        try {
+          const currentUserId = getCurrentUserId();
+          if (currentUserId) {
+            const productIds = items.map(item => item.productId).join(',');
+            const reviewsRes = await api.get('reviews/', {
+              params: { 
+                product__in: productIds,
+                user: currentUserId,
+                order: o.id
+              }
+            });
+            orderReviews = reviewsRes.data.results || reviewsRes.data;
+          }
+        } catch (error) {
+          console.error('Error loading reviews for order:', o.id, error);
+        }
 
         return {
           id: 'FT' + o.id,
@@ -200,10 +225,11 @@ const OrderHistory = () => {
           shipping,
           promotionCode,
           items,
+          reviews: orderReviews, // Thêm reviews vào order
           payment: { method: o.payment_method || '', status: o.status === 'delivered' ? 'paid' : 'pending' },
           tracking: null,
           estimatedDelivery: null,
-          canReview: uiStatus === 'delivered',
+          canReview: uiStatus === 'delivered' || uiStatus === 'confirmed' || uiStatus === 'shipped',
           canReorder: true
         };
       }));
@@ -256,15 +282,8 @@ const OrderHistory = () => {
       setTotalOrders(finalTotal);
       setTotalPages(finalPages);
       
-      // Load reviews cho tất cả sản phẩm trong orders
-      const allProductIds = filteredOrders.flatMap(order => 
-        order.items.map(item => item.productId)
-      );
-      if (allProductIds.length > 0) {
-        loadProductReviews(allProductIds);
-      }
+       // Reviews đã được load trong từng order, không cần load riêng
       
-      console.log('Final Orders:', filteredOrders.length, 'Total:', finalTotal, 'Pages:', finalPages); // Debug log
       
     } catch (e) {
       console.error('Load orders error:', e?.response?.data || e.message);
@@ -398,8 +417,8 @@ const OrderHistory = () => {
     }
   };
 
-  const openReview = (item) => {
-    setReviewItem(item);
+  const openReview = (item, order) => {
+    setReviewItem({...item, orderId: order.rawId});
     setReviewRating(5);
     setReviewTitle(`Đánh giá ${item.name}`);
     setReviewComment('');
@@ -409,33 +428,64 @@ const OrderHistory = () => {
   const submitReview = async () => {
     if (!reviewItem?.productId) return;
     
+    // Validation ở frontend
+    if (!reviewRating || reviewRating < 1 || reviewRating > 5) {
+      alert('Vui lòng chọn đánh giá từ 1 đến 5 sao');
+      return;
+    }
+    
+    if (!reviewTitle.trim() || reviewTitle.trim().length < 3) {
+      alert('Tiêu đề đánh giá phải có ít nhất 3 ký tự');
+      return;
+    }
+    
+    if (!reviewComment.trim() || reviewComment.trim().length < 10) {
+      alert('Nội dung đánh giá phải có ít nhất 10 ký tự');
+      return;
+    }
+    
     setSubmittingReview(true);
     try {
-      await api.post('reviews/', {
+      const reviewData = {
         product: reviewItem.productId,
+        order: reviewItem.orderId,
         rating: reviewRating,
-        title: reviewTitle,
-        comment: reviewComment
-      });
+        title: reviewTitle.trim(),
+        comment: reviewComment.trim()
+      };
+      
+      const response = await api.post('reviews/', reviewData);
   
-      // Reload reviews để cập nhật UI
-      const allProductIds = orders.flatMap(order => 
-        order.items.map(item => item.productId)
-      );
-      if (allProductIds.length > 0) {
-        loadProductReviews(allProductIds);
-      }
+       // Reload orders để cập nhật reviews
+       loadOrders(currentPage, searchTerm, statusFilter, dateFilter);
   
       setReviewOpen(false);
       setReviewItem(null);
       alert('Đánh giá thành công. Cảm ơn bạn!');
     } catch (e) {
       console.error('Submit review error:', e?.response?.data || e.message);
-      if (e?.response?.status === 400) {
-        alert('Bạn đã đánh giá sản phẩm này rồi!');
-      } else {
-        alert('Gửi đánh giá thất bại. Vui lòng thử lại.');
+      
+      // Hiển thị lỗi chi tiết từ backend
+      let errorMessage = 'Có lỗi xảy ra khi gửi đánh giá. Vui lòng thử lại.';
+      
+      if (e?.response?.data) {
+        const errorData = e.response.data;
+        console.log('Error data:', errorData);
+        
+        if (typeof errorData === 'object') {
+          // Lấy lỗi đầu tiên từ validation
+          const firstError = Object.values(errorData)[0];
+          if (Array.isArray(firstError)) {
+            errorMessage = firstError[0];
+          } else if (typeof firstError === 'string') {
+            errorMessage = firstError;
+          }
+        } else if (typeof errorData === 'string') {
+          errorMessage = errorData;
+        }
       }
+      
+      alert(errorMessage);
     } finally {
       setSubmittingReview(false);
     }
@@ -511,6 +561,7 @@ const OrderHistory = () => {
                 <select value={statusFilter} onChange={handleStatusFilterChange}>
                   <option value="all">Tất cả</option>
                   <option value="processing">Đang xử lý</option>
+                  <option value="confirmed">Đã xác nhận</option>
                   <option value="shipping">Đang giao</option>
                   <option value="delivered">Đã giao</option>
                   <option value="cancelled">Đã hủy</option>
@@ -587,7 +638,14 @@ const OrderHistory = () => {
 
                     <div className="oh-order-items">
                       {order.items.map(item => {
-                        const existingReview = productReviews[item.productId];
+                        // Tìm review trong order.reviews có productId trùng với sản phẩm hiện tại VÀ orderId trùng với đơn hàng hiện tại
+                        const existingReview = order.reviews?.find(review => 
+                          review.product === item.productId && 
+                          review.order === order.rawId && 
+                          review.rating !== null
+                        );
+                        
+                        
                         return (
                           <div key={item.id} className="oh-order-item">
                             <img src={item.image} alt={item.name} />
@@ -603,7 +661,7 @@ const OrderHistory = () => {
                               {order.status === 'delivered' && !existingReview && (
                                 <button
                                   className="oh-review-btn"
-                                  onClick={() => openReview(item)}
+                                  onClick={() => openReview(item, order)}
                                 >
                                   Đánh giá sản phẩm
                                 </button>

@@ -11,7 +11,9 @@ import {
   FaUser,
   FaChevronRight,
   FaChevronLeft,
-  FaSpinner
+  FaSpinner,
+  FaPlus,
+  FaTimes
 } from 'react-icons/fa';
 import './Checkout.css';
 import api from '../../../services/api';
@@ -70,37 +72,103 @@ const Checkout = () => {
   const [loadingCart, setLoadingCart] = useState(!buyNowItems);
   const [qrOrderId, setQrOrderId] = useState(null);
   const [transferContent, setTransferContent] = useState('');
+  
+  // Shipping addresses
+  const [shippingAddresses, setShippingAddresses] = useState([]);
+  const [selectedAddressId, setSelectedAddressId] = useState(null);
+  const [useCustomAddress, setUseCustomAddress] = useState(false);
+  const [showAddAddressForm, setShowAddAddressForm] = useState(false);
+  const [showAddressSelector, setShowAddressSelector] = useState(false);
+  const [newAddressData, setNewAddressData] = useState({
+    full_name: '',
+    email: '',
+    phone: '',
+    address: '',
+    city: '',
+    district: '',
+    ward: '',
+    is_default: false
+  });
+  
 
   // Thêm state để kiểm soát loading khi xác nhận thanh toán
   const [confirmingPayment, setConfirmingPayment] = useState(false);
 
+  const fetchShippingAddresses = async () => {
+    try {
+      const response = await api.get('shipping-addresses/');
+      const addresses = response.data.results || response.data;
+      setShippingAddresses(addresses);
+      
+      // Tự động chọn địa chỉ mặc định
+      const defaultAddress = addresses.find(addr => addr.is_default);
+      if (defaultAddress) {
+        setSelectedAddressId(defaultAddress.id);
+        setUseCustomAddress(false);
+        setShippingInfo({
+          fullName: defaultAddress.full_name,
+          email: defaultAddress.email,
+          phone: defaultAddress.phone,
+          address: defaultAddress.address,
+          city: defaultAddress.city,
+          district: defaultAddress.district || '',
+          ward: defaultAddress.ward || '',
+          note: ''
+        });
+      }
+    } catch (err) {
+      console.error('Fetch shipping addresses error:', err);
+    }
+  };
+
+
   const prefillShipping = async () => {
     try {
-      const userLocal = localStorage.getItem('user');
-      const uid = userLocal ? JSON.parse(userLocal)?.id : null;
-      if (!uid) return;
-      const res = await api.get(`users/${uid}/`);
-      const u = res.data || {};
-      setShippingInfo(prev => ({
-        ...prev,
-        fullName: u.name || prev.fullName,
-        email: u.email || prev.email,
-        phone: u.phone || prev.phone,
-        address: u.address || prev.address,
-        city: u.city || prev.city,
-        district: u.district || prev.district
-      }));
+      // Ưu tiên lấy từ địa chỉ giao hàng mặc định
+      const defaultAddress = shippingAddresses.find(addr => addr.is_default);
+      if (defaultAddress) {
+        setShippingInfo({
+          fullName: defaultAddress.full_name,
+          email: defaultAddress.email,
+          phone: defaultAddress.phone,
+          address: defaultAddress.address,
+          city: defaultAddress.city,
+          district: defaultAddress.district || '',
+          ward: defaultAddress.ward || '',
+          note: ''
+        });
+        setSelectedAddressId(defaultAddress.id);
+        setUseCustomAddress(false);
+      } else {
+        // Fallback về thông tin tài khoản nếu không có địa chỉ
+        const userLocal = localStorage.getItem('user');
+        const uid = userLocal ? JSON.parse(userLocal)?.id : null;
+        if (!uid) return;
+        const res = await api.get(`users/${uid}/`);
+        const u = res.data || {};
+        setShippingInfo(prev => ({
+          ...prev,
+          fullName: u.name || prev.fullName,
+          email: u.email || prev.email,
+          phone: u.phone || prev.phone,
+          address: u.address || prev.address,
+          city: u.city || prev.city,
+          district: u.district || prev.district
+        }));
+      }
     } catch {}
   };
 
   useEffect(() => {
     if (buyNowItems) {
       setLoadingCart(false);
+      fetchShippingAddresses();
       return;
     }
     if (stateItems) {
       setCartItems(stateItems);
       setLoadingCart(false);
+      fetchShippingAddresses();
       return;
     }
     const loadCart = async () => {
@@ -137,6 +205,7 @@ const Checkout = () => {
       }
     };
     loadCart();
+    fetchShippingAddresses();
     prefillShipping();
   }, [buyNowItems, stateItems]);
 
@@ -145,6 +214,16 @@ const Checkout = () => {
     
     try {
       if (currentStep === 1) {
+        // Kiểm tra user có địa chỉ giao hàng không
+        if (shippingAddresses.length === 0) {
+          error('Bạn cần thêm ít nhất một địa chỉ giao hàng trước khi đặt hàng');
+          // Redirect đến trang quản lý địa chỉ
+          setTimeout(() => {
+            navigate('/shipping-addresses', { state: { fromCheckout: true } });
+          }, 2000);
+          return;
+        }
+        
         // Validate shipping info
         if (!shippingInfo.fullName || !shippingInfo.email || !shippingInfo.phone || !shippingInfo.address) {
           error('Vui lòng điền đầy đủ thông tin giao hàng');
@@ -190,6 +269,98 @@ const Checkout = () => {
     }));
   };
 
+  const handleAddressSelect = (addressId) => {
+    const address = shippingAddresses.find(addr => addr.id === addressId);
+    if (address) {
+      setSelectedAddressId(addressId);
+      setUseCustomAddress(false);
+      setShippingInfo({
+        fullName: address.full_name,
+        email: address.email,
+        phone: address.phone,
+        address: address.address,
+        city: address.city,
+        district: address.district || '',
+        ward: address.ward || '',
+        note: ''
+      });
+    }
+  };
+
+  const handleUseCustomAddress = () => {
+    setUseCustomAddress(true);
+    setSelectedAddressId(null);
+    // Reset form với thông tin user (fallback)
+    const userLocal = localStorage.getItem('user');
+    const uid = userLocal ? JSON.parse(userLocal)?.id : null;
+    if (uid) {
+      api.get(`users/${uid}/`).then(res => {
+        const u = res.data || {};
+        setShippingInfo({
+          fullName: u.name || '',
+          email: u.email || '',
+          phone: u.phone || '',
+          address: u.address || '',
+          city: u.city || '',
+          district: u.district || '',
+          ward: '',
+          note: ''
+        });
+      }).catch(() => {});
+    }
+  };
+
+  const handleAddNewAddress = async () => {
+    try {
+      const response = await api.post('shipping-addresses/', newAddressData);
+      const newAddress = response.data;
+      
+      // Cập nhật danh sách địa chỉ
+      setShippingAddresses(prev => [...prev, newAddress]);
+      
+      // Tự động chọn địa chỉ vừa tạo
+      setSelectedAddressId(newAddress.id);
+      setUseCustomAddress(false);
+      setShippingInfo({
+        fullName: newAddress.full_name,
+        email: newAddress.email,
+        phone: newAddress.phone,
+        address: newAddress.address,
+        city: newAddress.city,
+        district: newAddress.district || '',
+        ward: newAddress.ward || '',
+        note: ''
+      });
+      
+      // Reset form
+      setNewAddressData({
+        full_name: '',
+        email: '',
+        phone: '',
+        address: '',
+        city: '',
+        district: '',
+        ward: '',
+        is_default: false
+      });
+      setShowAddAddressForm(false);
+      
+      success('Thêm địa chỉ thành công!');
+    } catch (err) {
+      error('Không thể thêm địa chỉ. Vui lòng thử lại.');
+      console.error('Add address error:', err);
+    }
+  };
+
+  const handleNewAddressChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    setNewAddressData(prev => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : value
+    }));
+  };
+
+
   const handlePaymentChange = (e) => {
     const { name, value } = e.target;
     setPaymentInfo(prev => ({
@@ -223,15 +394,49 @@ const Checkout = () => {
       
       const pm = paymentMethod === 'qr' ? 'qr' : 'cod';
 
+      // Tạo hoặc lấy ShippingAddress
+      let shippingAddressId = null;
+      console.log('Checkout Debug:', {
+        selectedAddressId,
+        useCustomAddress,
+        shippingAddressesLength: shippingAddresses.length,
+        shippingInfo,
+        shippingAddresses: shippingAddresses.map(addr => ({ id: addr.id, name: addr.full_name, is_default: addr.is_default }))
+      });
+      
+      if (selectedAddressId) {
+        // Sử dụng địa chỉ đã chọn
+        shippingAddressId = selectedAddressId;
+        console.log('Using selected address:', selectedAddressId);
+      } else {
+        // Tạo địa chỉ mới từ thông tin nhập (khi không chọn địa chỉ nào)
+        console.log('Creating new address from shippingInfo:', shippingInfo);
+        const newAddressRes = await api.post('shipping-addresses/', {
+          full_name: shippingInfo.fullName,
+          email: shippingInfo.email,
+          phone: shippingInfo.phone,
+          address: shippingInfo.address,
+          city: shippingInfo.city,
+          district: shippingInfo.district,
+          ward: shippingInfo.ward,
+          is_default: false // Không đặt làm default cho địa chỉ tạm thời
+        });
+        shippingAddressId = newAddressRes.data.id;
+        console.log('Created new address with ID:', shippingAddressId);
+      }
+
       // Tạo order với thông tin đầy đủ
-      const orderRes = await api.post('orders/', { 
+      const orderData = { 
         payment_method: pm,
         subtotal: orderSubtotal.toFixed(2),
         discount_amount: orderDiscount.toFixed(2),
         shipping_fee: orderShipping.toFixed(2),
         promotion_code: appliedCoupon ? appliedCoupon.code : null,
-        total: orderTotal.toFixed(2)
-      });
+        total: orderTotal.toFixed(2),
+        shipping_address_id: shippingAddressId
+      };
+      console.log('Creating order with data:', orderData);
+      const orderRes = await api.post('orders/', orderData);
       
       const orderId = orderRes?.data?.id;
       if (!orderId) throw new Error('Không tạo được đơn hàng');
@@ -330,11 +535,250 @@ const Checkout = () => {
             {currentStep === 1 && (
               <div className="chk-shipping-form">
                 <h2>Thông tin giao hàng</h2>
-                <div style={{display: 'flex', justifyContent: 'flex-end', marginBottom: '1rem'}}>
-                  <button type='button' className='chk-btn-secondary' onClick={prefillShipping}>
-                    Lấy thông tin tài khoản
-                  </button>
-                </div>
+                
+                {/* Show Address Card if has addresses and not using custom */}
+                {shippingAddresses.length > 0 && !useCustomAddress && !showAddressSelector && (
+                  <div className="default-address-display">
+                    <div className="address-display-header">
+                      <h3>Địa chỉ giao hàng</h3>
+                      <button 
+                        type="button"
+                        className="btn-secondary change-address-btn"
+                        onClick={() => setShowAddressSelector(true)}
+                      >
+                        Thay đổi địa chỉ
+                      </button>
+                    </div>
+                    
+                    <div className="selected-address-card">
+                      {(() => {
+                        const selectedAddress = shippingAddresses.find(addr => addr.id === selectedAddressId) || 
+                                               shippingAddresses.find(addr => addr.is_default);
+                        return selectedAddress ? (
+                          <>
+                            <div className="address-card-header">
+                              <h4>{selectedAddress.full_name}</h4>
+                              {selectedAddress.is_default && <span className="default-badge">Mặc định</span>}
+                            </div>
+                            <div className="address-card-details">
+                              <p><strong>Địa chỉ:</strong> {selectedAddress.address}, {selectedAddress.district}, {selectedAddress.city}</p>
+                              <p><strong>Điện thoại:</strong> {selectedAddress.phone}</p>
+                              <p><strong>Email:</strong> {selectedAddress.email}</p>
+                            </div>
+                          </>
+                        ) : null;
+                      })()}
+                    </div>
+                  </div>
+                )}
+
+                {/* Show Address Selector */}
+                {showAddressSelector && (
+                  <div className="address-selection">
+                    <div className="address-selection-header">
+                      <h3>Chọn địa chỉ giao hàng</h3>
+                      <button 
+                        type="button"
+                        className="btn-secondary add-address-quick-btn"
+                        onClick={() => setShowAddAddressForm(true)}
+                      >
+                        <FaPlus /> Thêm địa chỉ mới
+                      </button>
+                    </div>
+                    
+                    <div className="address-options">
+                      {shippingAddresses.map(address => (
+                        <div 
+                          key={address.id}
+                          className={`address-option ${selectedAddressId === address.id ? 'selected' : ''}`}
+                          onClick={() => {
+                            handleAddressSelect(address.id);
+                            setShowAddressSelector(false);
+                          }}
+                        >
+                          <div className="address-option-content">
+                            <div className="address-option-header">
+                              <h4>{address.full_name}</h4>
+                              {address.is_default && <span className="default-badge">Mặc định</span>}
+                            </div>
+                            <p>{address.address}, {address.district}, {address.city}</p>
+                            <p>{address.phone} • {address.email}</p>
+                          </div>
+                        </div>
+                      ))}
+                      
+                      <div 
+                        className={`address-option custom-address ${useCustomAddress ? 'selected' : ''}`}
+                        onClick={() => {
+                          handleUseCustomAddress();
+                          setShowAddressSelector(false);
+                        }}
+                      >
+                        <div className="address-option-content">
+                          <h4>Nhập địa chỉ tạm thời</h4>
+                          <p>Sử dụng địa chỉ khác cho lần giao hàng này (không lưu)</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Quick Add Address Form */}
+                {showAddAddressForm && (
+                  <div className="quick-add-address-form">
+                    <div className="quick-add-header">
+                      <h4>Thêm địa chỉ mới</h4>
+                      <button 
+                        type="button"
+                        className="close-btn"
+                        onClick={() => setShowAddAddressForm(false)}
+                      >
+                        <FaTimes />
+                      </button>
+                    </div>
+                    
+                    <div className="quick-add-content">
+                      <div className="form-row">
+                        <div className="form-group">
+                          <label>Họ và tên *</label>
+                          <input
+                            type="text"
+                            name="full_name"
+                            value={newAddressData.full_name}
+                            onChange={handleNewAddressChange}
+                            placeholder="Nhập họ và tên"
+                          />
+                        </div>
+                        <div className="form-group">
+                          <label>Email *</label>
+                          <input
+                            type="email"
+                            name="email"
+                            value={newAddressData.email}
+                            onChange={handleNewAddressChange}
+                            placeholder="Nhập email"
+                          />
+                        </div>
+                      </div>
+                      
+                      <div className="form-group">
+                        <label>Số điện thoại *</label>
+                        <input
+                          type="tel"
+                          name="phone"
+                          value={newAddressData.phone}
+                          onChange={handleNewAddressChange}
+                          placeholder="Nhập số điện thoại"
+                        />
+                      </div>
+                      
+                      <div className="form-group">
+                        <label>Địa chỉ *</label>
+                        <input
+                          type="text"
+                          name="address"
+                          value={newAddressData.address}
+                          onChange={handleNewAddressChange}
+                          placeholder="Số nhà, tên đường"
+                        />
+                      </div>
+                      
+                      <div className="form-row">
+                        <div className="form-group">
+                          <label>Phường/Xã</label>
+                          <input
+                            type="text"
+                            name="ward"
+                            value={newAddressData.ward}
+                            onChange={handleNewAddressChange}
+                            placeholder="Nhập phường/xã"
+                          />
+                        </div>
+                        <div className="form-group">
+                          <label>Quận/Huyện</label>
+                          <input
+                            type="text"
+                            name="district"
+                            value={newAddressData.district}
+                            onChange={handleNewAddressChange}
+                            placeholder="Nhập quận/huyện"
+                          />
+                        </div>
+                      </div>
+                      
+                      <div className="form-group">
+                        <label>Tỉnh/Thành phố *</label>
+                        <input
+                          type="text"
+                          name="city"
+                          value={newAddressData.city}
+                          onChange={handleNewAddressChange}
+                          placeholder="VD: TP. Hồ Chí Minh"
+                        />
+                      </div>
+                      
+                      <div className="form-group">
+                        <label>
+                          <input
+                            type="checkbox"
+                            name="is_default"
+                            checked={newAddressData.is_default}
+                            onChange={handleNewAddressChange}
+                          />
+                          Đặt làm địa chỉ mặc định
+                        </label>
+                      </div>
+                      
+                      <div className="quick-add-actions">
+                        <button 
+                          type="button"
+                          className="btn-secondary"
+                          onClick={() => setShowAddAddressForm(false)}
+                        >
+                          Hủy
+                        </button>
+                        <button 
+                          type="button"
+                          className="btn-primary"
+                          onClick={handleAddNewAddress}
+                        >
+                          Thêm địa chỉ
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Custom Address Form - Show when no addresses or using custom */}
+                {(shippingAddresses.length === 0 || useCustomAddress) && !showAddressSelector && !showAddAddressForm && (
+                  <div className="custom-address-form">
+                    {shippingAddresses.length === 0 ? (
+                      <div className="no-address-warning">
+                        <h3>⚠️ Bạn chưa có địa chỉ giao hàng</h3>
+                        <p>Vui lòng thêm địa chỉ giao hàng để tiếp tục đặt hàng.</p>
+                        <div style={{display: 'flex', gap: '1rem', marginBottom: '1rem'}}>
+                          <button 
+                            type='button' 
+                            className='chk-btn-primary' 
+                            onClick={() => navigate('/shipping-addresses', { state: { fromCheckout: true } })}
+                          >
+                            Thêm địa chỉ giao hàng
+                          </button>
+                          <button type='button' className='chk-btn-secondary' onClick={prefillShipping}>
+                            Lấy thông tin tài khoản
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <h3>Thông tin địa chỉ mới</h3>
+                        <div style={{display: 'flex', justifyContent: 'flex-end', marginBottom: '1rem'}}>
+                          <button type='button' className='chk-btn-secondary' onClick={prefillShipping}>
+                            Lấy thông tin địa chỉ mặc định
+                          </button>
+                        </div>
+                      </>
+                    )}
                 <form>
                   <div className="chk-form-row">
                     <div className="chk-form-group">
@@ -447,6 +891,8 @@ const Checkout = () => {
                     />
                   </div>
                 </form>
+                  </div>
+                )}
               </div>
             )}
 
@@ -557,11 +1003,11 @@ const Checkout = () => {
                   className="chk-btn-primary"
                   onClick={handleNextStep}
                   disabled={
-                    (currentStep === 1 && !validateStep1()) ||
+                    (currentStep === 1 && (shippingAddresses.length === 0 || !validateStep1())) ||
                     (currentStep === 2 && !validateStep2())
                   }
                 >
-                  Tiếp tục
+                  {currentStep === 1 && shippingAddresses.length === 0 ? 'Cần thêm địa chỉ' : 'Tiếp tục'}
                 </button>
               ) : (
                 <button 

@@ -52,6 +52,15 @@ export default function ManagePromotions() {
   const savePromo = async (e) => {
     e.preventDefault();
     const payload = { ...form };
+    
+    // Convert datetime-local to ISO format
+    if (payload.start_date) {
+      payload.start_date = new Date(payload.start_date).toISOString();
+    }
+    if (payload.end_date) {
+      payload.end_date = new Date(payload.end_date).toISOString();
+    }
+    
     try {
       if (editing === 'new') {
         await api.post('/promotions/', payload);
@@ -62,8 +71,27 @@ export default function ManagePromotions() {
       const { data } = await api.get('/promotions/');
       setPromotions(data.results || data || []);
     } catch (err) {
-      alert('Lưu khuyến mãi thất bại');
-      console.error(err);
+      console.error('Error saving promotion:', err);
+      
+      let errorMessage = 'Lưu khuyến mãi thất bại';
+      
+      if (err.response?.data) {
+        if (typeof err.response.data === 'string') {
+          errorMessage = err.response.data;
+        } else if (err.response.data.detail) {
+          errorMessage = err.response.data.detail;
+        } else if (err.response.data.non_field_errors) {
+          errorMessage = err.response.data.non_field_errors[0];
+        } else {
+          // Show field-specific errors
+          const fieldErrors = Object.values(err.response.data).flat();
+          if (fieldErrors.length > 0) {
+            errorMessage = fieldErrors[0];
+          }
+        }
+      }
+      
+      alert(errorMessage);
     }
   };
 

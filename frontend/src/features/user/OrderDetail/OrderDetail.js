@@ -1,6 +1,7 @@
 import { useParams, Link } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import api from '../../../services/api';
+import { useNotification } from '../../../context/NotificationContext';
 import './OrderDetail.css';
 
 const statusVi = (s) => ({
@@ -21,9 +22,11 @@ const paymentMethodVi = (m) => ({
 
 const OrderDetail = () => {
   const { id } = useParams();
+  const { success, error } = useNotification();
   const [order, setOrder] = useState(null);
   const [details, setDetails] = useState([]);
   const [user, setUser] = useState(null);
+  const [shippingAddress, setShippingAddress] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -51,8 +54,17 @@ const OrderDetail = () => {
         setDetails(enriched);
 
         if (o?.user) {
-          const uRes = await api.get(`users/${o.user}/`);
-          setUser(uRes.data);
+          // Handle both user ID and user object
+          const userId = typeof o.user === 'object' ? o.user.id : o.user;
+          if (userId) {
+            const uRes = await api.get(`users/${userId}/`);
+            setUser(uRes.data);
+          }
+        }
+
+        // Load shipping address if exists
+        if (o?.shipping_address) {
+          setShippingAddress(o.shipping_address);
         }
       } finally {
         setLoading(false);
@@ -73,15 +85,22 @@ const OrderDetail = () => {
   const shipping = Number(order.shipping_fee || 0);
   const total = Number(order.total || 0) > 0 ? Number(order.total) : (subtotal - discount + shipping);
   
-  console.log('Order Detail Calculation:', {
-    order: order,
-    calculatedSubtotal,
-    subtotal,
-    discount,
-    shipping,
-    total,
-    details
-  });
+  const handleConfirmDelivery = async () => {
+    try {
+      setLoading(true);
+      await api.post(`orders/${id}/confirm_delivery/`);
+      success('Đã xác nhận nhận hàng thành công!');
+      
+      // Reload order data
+      const oRes = await api.get(`orders/${id}/`);
+      setOrder(oRes.data);
+    } catch (err) {
+      error('Có lỗi xảy ra khi xác nhận nhận hàng. Vui lòng thử lại.');
+      console.error('Confirm delivery error:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="order-detail-page">
@@ -91,13 +110,36 @@ const OrderDetail = () => {
         {/* Cột trái */}
         <div className="order-detail-left">
           <section className="order-detail-section">
-            <h3 className="order-detail-section-title">Thông tin người mua</h3>
-            <div className="order-detail-info-item">Tên: {user?.name || user?.username}</div>
-            <div className="order-detail-info-item">Email: {user?.email}</div>
-            <div className="order-detail-info-item">Điện thoại: {user?.phone}</div>
-            <div className="order-detail-info-item">Địa chỉ: {user?.address}</div>
-            <div className="order-detail-info-item">Tỉnh/Thành phố: {user?.city}</div>
-            <div className="order-detail-info-item">Quận/Huyện: {user?.district}</div>
+            <h3 className="order-detail-section-title">
+              Thông tin giao hàng
+              {shippingAddress ? (
+                <span className="address-source-badge">(Từ địa chỉ đã lưu)</span>
+              ) : (
+                <span className="address-source-badge">(Nhập mới khi đặt hàng)</span>
+              )}
+            </h3>
+            {shippingAddress ? (
+              <>
+                <div className="order-detail-info-item">Tên: {shippingAddress.full_name}</div>
+                <div className="order-detail-info-item">Email: {shippingAddress.email}</div>
+                <div className="order-detail-info-item">Điện thoại: {shippingAddress.phone}</div>
+                <div className="order-detail-info-item">Địa chỉ: {shippingAddress.address}</div>
+                <div className="order-detail-info-item">Tỉnh/Thành phố: {shippingAddress.city}</div>
+                <div className="order-detail-info-item">Quận/Huyện: {shippingAddress.district}</div>
+                {shippingAddress.ward && (
+                  <div className="order-detail-info-item">Phường/Xã: {shippingAddress.ward}</div>
+                )}
+              </>
+            ) : (
+              <>
+                <div className="order-detail-info-item">Tên: {user?.name || user?.username}</div>
+                <div className="order-detail-info-item">Email: {user?.email}</div>
+                <div className="order-detail-info-item">Điện thoại: {user?.phone}</div>
+                <div className="order-detail-info-item">Địa chỉ: {user?.address}</div>
+                <div className="order-detail-info-item">Tỉnh/Thành phố: {user?.city}</div>
+                <div className="order-detail-info-item">Quận/Huyện: {user?.district}</div>
+              </>
+            )}
           </section>
 
           <section className="order-detail-section">
@@ -175,6 +217,19 @@ const OrderDetail = () => {
           </section>
         </div>
       </div>
+
+      {/* Confirm Delivery Button */}
+      {order && order.status === 'shipped' && (
+        <div className="order-detail-actions">
+          <button 
+            className="confirm-delivery-btn"
+            onClick={handleConfirmDelivery}
+            disabled={loading}
+          >
+            {loading ? 'Đang xử lý...' : 'Xác nhận đã nhận hàng'}
+          </button>
+        </div>
+      )}
 
       <div className="order-detail-back-link">
         <Link to="/orders">← Quay lại lịch sử đơn hàng</Link>

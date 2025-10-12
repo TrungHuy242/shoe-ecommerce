@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { FaArrowLeft, FaCalendarAlt, FaUser, FaDollarSign, FaTruck, FaTags } from 'react-icons/fa';
+import { FaArrowLeft, FaCalendarAlt, FaUser, FaDollarSign, FaTruck, FaTags, FaCog, FaTimes } from 'react-icons/fa';
 import { getOrder, getUser, mapBeToUiStatus, mapPaymentStatus, getOrderItems } from '../../../../services/orderService';
+import api from '../../../../services/api';
 import './OrderDetail.css';
 
 const OrderDetail = () => {
@@ -13,6 +14,7 @@ const OrderDetail = () => {
 
   const [order, setOrder] = useState(null);
   const [user, setUser] = useState(null);
+  const [shippingAddress, setShippingAddress] = useState(null);
   const [loading, setLoading] = useState(true);
   const [items, setItems] = useState([]);
   
@@ -67,6 +69,11 @@ const OrderDetail = () => {
         setOrder(o);
         setUser(u);
         setItems(its);
+        
+        // Set shipping address if exists
+        if (o?.shipping_address) {
+          setShippingAddress(o.shipping_address);
+        }
       } catch (e) {
         console.error('Failed to load order detail:', e);
         if (mounted) {
@@ -82,6 +89,35 @@ const OrderDetail = () => {
     if (rawId) load();
     return () => { mounted = false; };
   }, [rawId]);
+
+  const handleCancelOrder = async () => {
+    if (!order) return;
+    
+    const confirmed = window.confirm(
+      `Bạn có chắc chắn muốn hủy đơn hàng #${order.id}?\n\n` +
+      `Điều này sẽ:\n` +
+      `- Hoàn trả số lượng sản phẩm về kho\n` +
+      `- Gửi thông báo cho khách hàng\n` +
+      `- Không thể hoàn tác`
+    );
+    
+    if (!confirmed) return;
+    
+    try {
+      setLoading(true);
+      await api.post(`orders/${order.id}/cancel/`);
+      alert('Đã hủy đơn hàng thành công!');
+      
+      // Reload order data
+      const o = await getOrder(rawId);
+      setOrder(o);
+    } catch (e) {
+      console.error('Cancel order error:', e?.response?.data || e.message);
+      alert('Có lỗi xảy ra khi hủy đơn hàng. Vui lòng thử lại.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -134,25 +170,69 @@ const OrderDetail = () => {
         </div>
 
         <div className="od-grid">
-          {/* Thông tin khách hàng */}
+          {/* Thông tin giao hàng */}
           <div className="od-card">
-            <h3><FaUser /> Khách hàng</h3>
-            <div className="od-row">
-              <span>Tên:</span>
-              <strong>{user?.name || user?.username || `User #${order.user}`}</strong>
-            </div>
-            <div className="od-row">
-              <span>Email:</span>
-              <strong>{user?.email || '-'}</strong>
-            </div>
-            <div className="od-row">
-              <span>SĐT:</span>
-              <strong>{user?.phone || '-'}</strong>
-            </div>
-            <div className="od-row">
-              <span>Địa chỉ:</span>
-              <strong>{user?.address || '-'}</strong>
-            </div>
+            <h3>
+              <FaUser /> Thông tin giao hàng
+              {shippingAddress ? (
+                <span className="address-source-badge">(Từ địa chỉ đã lưu)</span>
+              ) : (
+                <span className="address-source-badge">(Nhập mới khi đặt hàng)</span>
+              )}
+            </h3>
+            {shippingAddress ? (
+              <>
+                <div className="od-row">
+                  <span>Tên:</span>
+                  <strong>{shippingAddress.full_name}</strong>
+                </div>
+                <div className="od-row">
+                  <span>Email:</span>
+                  <strong>{shippingAddress.email}</strong>
+                </div>
+                <div className="od-row">
+                  <span>SĐT:</span>
+                  <strong>{shippingAddress.phone}</strong>
+                </div>
+                <div className="od-row">
+                  <span>Địa chỉ:</span>
+                  <strong>{shippingAddress.address}</strong>
+                </div>
+                <div className="od-row">
+                  <span>Thành phố:</span>
+                  <strong>{shippingAddress.city}</strong>
+                </div>
+                <div className="od-row">
+                  <span>Quận/Huyện:</span>
+                  <strong>{shippingAddress.district || '-'}</strong>
+                </div>
+                {shippingAddress.ward && (
+                  <div className="od-row">
+                    <span>Phường/Xã:</span>
+                    <strong>{shippingAddress.ward}</strong>
+                  </div>
+                )}
+              </>
+            ) : (
+              <>
+                <div className="od-row">
+                  <span>Tên:</span>
+                  <strong>{user?.name || user?.username || `User #${typeof order.user === 'object' ? order.user.id : order.user}`}</strong>
+                </div>
+                <div className="od-row">
+                  <span>Email:</span>
+                  <strong>{user?.email || '-'}</strong>
+                </div>
+                <div className="od-row">
+                  <span>SĐT:</span>
+                  <strong>{user?.phone || '-'}</strong>
+                </div>
+                <div className="od-row">
+                  <span>Địa chỉ:</span>
+                  <strong>{user?.address || '-'}</strong>
+                </div>
+              </>
+            )}
           </div>
 
           {/* Trạng thái đơn hàng */}
@@ -245,6 +325,22 @@ const OrderDetail = () => {
             </table>
           </div>
         </div>
+
+        {/* Admin Actions */}
+        {order && order.status !== 'cancelled' && order.status !== 'delivered' && (
+          <div className="od-card">
+            <h3><FaCog /> Thao tác</h3>
+            <div className="od-actions">
+              <button 
+                className="od-cancel-btn"
+                onClick={handleCancelOrder}
+                disabled={loading}
+              >
+                <FaTimes /> Hủy đơn hàng
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

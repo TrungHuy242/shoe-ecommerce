@@ -126,8 +126,12 @@ const ManageOrders = () => {
           try {
             let user = null;
             if (o.user) {
-              const userRes = await api.get(`users/${o.user}/`);
-              user = userRes.data;
+              // Handle both user ID and user object
+              const userId = typeof o.user === 'object' ? o.user.id : o.user;
+              if (userId) {
+                const userRes = await api.get(`users/${userId}/`);
+                user = userRes.data;
+              }
             }
 
             // Map backend status to UI status
@@ -141,7 +145,7 @@ const ManageOrders = () => {
             return {
               id: 'FT' + o.id,
               rawId: o.id,
-              customerName: user?.name || user?.username || `User #${o.user || 'N/A'}`,
+              customerName: user?.name || user?.username || `User #${typeof o.user === 'object' ? o.user.id : o.user || 'N/A'}`,
               customerEmail: user?.email || '',
               customerPhone: user?.phone || '',
               total: Number(o.total || 0),
@@ -162,7 +166,7 @@ const ManageOrders = () => {
             return {
               id: 'FT' + o.id,
               rawId: o.id,
-              customerName: `User #${o.user || 'N/A'}`,
+              customerName: `User #${typeof o.user === 'object' ? o.user.id : o.user || 'N/A'}`,
               customerEmail: '',
               customerPhone: '',
               total: Number(o.total || 0),

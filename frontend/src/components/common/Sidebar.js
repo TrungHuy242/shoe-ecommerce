@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
-import { FaTachometerAlt, FaBox, FaUsers, FaChartLine, FaComments, FaSignOutAlt, FaList, FaBuilding, FaCaretDown, FaCaretUp } from "react-icons/fa";
+import { FaTachometerAlt, FaBox, FaUsers, FaChartLine, FaComments, FaSignOutAlt, FaList, FaBuilding, FaCaretDown, FaCaretUp, FaRobot } from "react-icons/fa";
 import "./Sidebar.css";
 
 const Sidebar = () => {
@@ -51,7 +51,9 @@ const Sidebar = () => {
         <Link to="/admin/promotions" className="admin-nav-item">
           <FaChartLine /> Khuyến mãi
         </Link>
-        {/* Chatbot menu removed */}
+        <Link to="/admin/ai-chatbot" className="admin-nav-item">
+          <FaRobot /> AI Chatbot
+        </Link>
         <Link to="/login" className="admin-nav-item logout" onClick={() => localStorage.removeItem("user")}>
           <FaSignOutAlt /> Đăng xuất
         </Link>

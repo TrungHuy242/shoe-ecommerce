@@ -98,8 +98,12 @@ const Dashboard = () => {
             try {
               let user = null;
               if (order.user) {
-                const userRes = await api.get(`users/${order.user}/`);
-                user = userRes.data;
+                // Handle both user ID and user object
+                const userId = typeof order.user === 'object' ? order.user.id : order.user;
+                if (userId) {
+                  const userRes = await api.get(`users/${userId}/`);
+                  user = userRes.data;
+                }
               }
               
               return {

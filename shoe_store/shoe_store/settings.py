@@ -12,14 +12,16 @@ https://docs.djangoproject.com/en/5.0/ref/settings/
 
 from datetime import timedelta
 from pathlib import Path
-from dotenv import load_dotenv
 import os
-
-load_dotenv()
-GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
+from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Load environment variables from .env file
+load_dotenv(os.path.join(BASE_DIR, '.env'))
+
+GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.0/howto/deployment/checklist/
@@ -178,3 +180,14 @@ LOGGING = {
 }
 
 BACKEND_ORIGIN = "http://127.0.0.1:8000"
+FRONTEND_ORIGIN = "http://localhost:3000"
+
+# Email configuration (for password reset)
+# EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'  # For development
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'  # For production
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = 'huytrung0102@gmail.com'
+EMAIL_HOST_PASSWORD = 'lwcf dllz lftj chbs'  # App Password
+DEFAULT_FROM_EMAIL = 'noreply@footfashion.com'

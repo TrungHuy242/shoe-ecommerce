@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { User, MapPin, Phone, Mail, Edit2, Save, X } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../../../context/AuthContext';
 import api from '../../../services/api';
 import './Account.css';
@@ -283,6 +284,13 @@ const Account = () => {
               <User size={20} />
               Thông tin cá nhân
             </button>
+            <Link
+              to="/shipping-addresses"
+              className="nav-item"
+            >
+              <MapPin size={20} />
+              Địa chỉ giao hàng
+            </Link>
           </nav>
         </div>
 
