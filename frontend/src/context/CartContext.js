@@ -21,13 +21,20 @@ export const CartProvider = ({ children }) => {
       const response = await api.get('cart-items/');
       const items = Array.isArray(response.data) ? response.data : (response.data.results || []);
       const totalQuantity = items.reduce((sum, item) => sum + (item.quantity || 0), 0);
+      
+      // Update state immediately
       setCartCount(totalQuantity);
       setCartItems(items);
+      
+      console.log('Cart updated:', { totalQuantity, itemsCount: items.length });
       return totalQuantity;
     } catch (error) {
       console.error('Error fetching cart count:', error);
-      setCartCount(0);
-      setCartItems([]);
+      // Only reset if it's an auth error
+      if (error.response?.status === 401) {
+        setCartCount(0);
+        setCartItems([]);
+      }
       return 0;
     }
   };
@@ -49,14 +56,26 @@ export const CartProvider = ({ children }) => {
         cartId = newCartRes.data.id;
       }
 
-      // Add item to cart
-      await api.post('cart-items/', {
-        cart: cartId,
-        product: productId,
-        quantity: quantity
-      });
+      // Check if product already exists in cart
+      const cartItemsRes = await api.get('cart-items/');
+      const existingItems = Array.isArray(cartItemsRes.data) ? cartItemsRes.data : (cartItemsRes.data.results || []);
+      const existingItem = existingItems.find(item => item.product === productId);
 
-      // Refresh cart count
+      if (existingItem) {
+        // Update quantity if item already exists
+        await api.patch(`cart-items/${existingItem.id}/`, {
+          quantity: existingItem.quantity + quantity
+        });
+      } else {
+        // Add new item to cart
+        await api.post('cart-items/', {
+          cart: cartId,
+          product: productId,
+          quantity: quantity
+        });
+      }
+
+      // Refresh cart count immediately
       await fetchCartCount();
       return true;
     } catch (error) {
@@ -69,7 +88,9 @@ export const CartProvider = ({ children }) => {
   const removeFromCart = async (cartItemId) => {
     try {
       await api.delete(`cart-items/${cartItemId}/`);
+      // Update cart count immediately
       await fetchCartCount();
+      console.log('Item removed from cart:', cartItemId);
       return true;
     } catch (error) {
       console.error('Error removing from cart:', error);
@@ -81,7 +102,9 @@ export const CartProvider = ({ children }) => {
   const updateCartItemQuantity = async (cartItemId, quantity) => {
     try {
       await api.patch(`cart-items/${cartItemId}/`, { quantity });
+      // Update cart count immediately
       await fetchCartCount();
+      console.log('Cart item quantity updated:', cartItemId, quantity);
       return true;
     } catch (error) {
       console.error('Error updating cart item:', error);

@@ -17,9 +17,7 @@ export default function Deals() {
       setLoading(true);
       setError(null);
       try {
-        console.log('Fetching promotions...');
         const promoRes = await api.get('promotions/');
-        console.log('Promotions response:', promoRes.data);
         
         if (!mounted) return;
         
@@ -29,7 +27,6 @@ export default function Deals() {
           end_date: p.end_date ? new Date(p.end_date) : null
         }));
         
-        console.log('Processed promotions:', promos);
         setPromotions(promos);
       } catch (e) {
         console.error('Fetch promotions error:', e);

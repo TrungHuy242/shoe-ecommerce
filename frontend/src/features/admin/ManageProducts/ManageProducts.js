@@ -53,7 +53,6 @@ const ManageProducts = () => {
       setBrands(Array.isArray(brandsRes.data) ? brandsRes.data : (brandsRes.data.results || []));
       setSizes(Array.isArray(sizesRes.data) ? sizesRes.data : (sizesRes.data.results || []));
       setColors(Array.isArray(colorsRes.data) ? colorsRes.data : (colorsRes.data.results || []));
-      console.log('Products data:', productsRes.data.results); // Debug
     } catch (err) {
       setError('Không thể tải dữ liệu. Vui lòng thử lại.');
       console.error('Fetch error:', err);

@@ -26,6 +26,7 @@ api.interceptors.request.use(
       "products/",
       "promotions/"
       // BỎ "orders/" và "notifications/" vì cần auth cho cả GET
+      // BỎ "cart-items/" và "carts/" vì cần auth cho cả GET
     ];
     
     // Nếu là GET request đến read-only endpoints thì không cần token

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import api from '../../../services/api';
 import { useCart } from '../../../context/CartContext';
+import { useNotification } from '../../../context/NotificationContext';
 import { 
   FaHeart, 
   FaShoppingCart, 
@@ -34,6 +35,7 @@ const ProductDetail = () => {
 
   const navigate = useNavigate();
   const { addToCart } = useCart();
+  const { success, error: showError } = useNotification();
   const vnd = new Intl.NumberFormat('vi-VN'); // format VND
 
   const fetchProductData = async () => {
@@ -65,8 +67,7 @@ const ProductDetail = () => {
           colors: productColors,
         });
 
-        // Set default selected color
-        setSelectedColor(productColors[0]?.value || '');
+        // Không tự chọn màu mặc định - để người dùng tự chọn
         setCurrentImageIndex(0);
 
         // Fetch related products
@@ -173,8 +174,14 @@ const ProductDetail = () => {
   };
 
   const handleAddToCart = async () => {
-    if (!selectedSize) { alert('Vui lòng chọn size!'); return; }
-    if (!selectedColor) { alert('Vui lòng chọn màu!'); return; }
+    if (!selectedSize) { 
+      showError('Vui lòng chọn size!'); 
+      return; 
+    }
+    if (!selectedColor) { 
+      showError('Vui lòng chọn màu!'); 
+      return; 
+    }
 
     const userId = getCurrentUserId();
     if (!userId) { navigate('/login'); return; }
@@ -182,40 +189,47 @@ const ProductDetail = () => {
     setAddingToCart(true);
     try {
       // Sử dụng addToCart từ CartContext thay vì gọi API trực tiếp
-      const success = await addToCart(product.id, quantity);
+      const successResult = await addToCart(product.id, quantity);
       
-      if (success) {
+      if (successResult) {
         // Lưu meta size/color vào localStorage theo cartItemId
         const metaRaw = localStorage.getItem('cart_item_meta');
         const meta = metaRaw ? JSON.parse(metaRaw) : {};
         meta[product.id] = { size: selectedSize, color: selectedColor };
         localStorage.setItem('cart_item_meta', JSON.stringify(meta));
         
-        alert('Đã thêm sản phẩm vào giỏ hàng!');
+        success('Đã thêm sản phẩm vào giỏ hàng!');
+        console.log('Product added to cart successfully:', product.id, quantity);
       } else {
-        alert('Không thể thêm sản phẩm. Vui lòng thử lại.');
+        showError('Không thể thêm sản phẩm. Vui lòng thử lại.');
       }
     } catch (e) {
       console.error('Add to cart error:', e?.response?.data || e.message);
       if (e?.response?.status === 401) navigate('/login');
-      else alert('Không thể thêm sản phẩm. Vui lòng thử lại.');
+      else showError('Không thể thêm sản phẩm. Vui lòng thử lại.');
     } finally {
       setAddingToCart(false);
     }
   };
 
   const handleBuyNow = async () => {
-    if (!selectedSize) { alert('Vui lòng chọn size!'); return; }
-    if (!selectedColor) { alert('Vui lòng chọn màu!'); return; }
+    if (!selectedSize) { 
+      showError('Vui lòng chọn size!'); 
+      return; 
+    }
+    if (!selectedColor) { 
+      showError('Vui lòng chọn màu!'); 
+      return; 
+    }
 
     const userId = getCurrentUserId();
     if (!userId) { navigate('/login'); return; }
 
     try {
       // Thêm sản phẩm vào giỏ hàng trước
-      const success = await addToCart(product.id, quantity);
+      const successResult = await addToCart(product.id, quantity);
       
-      if (success) {
+      if (successResult) {
         // Lưu meta size/color vào localStorage
         const metaRaw = localStorage.getItem('cart_item_meta');
         const meta = metaRaw ? JSON.parse(metaRaw) : {};
@@ -228,15 +242,16 @@ const ProductDetail = () => {
           timestamp: Date.now()
         }));
         
+        success('Đã thêm sản phẩm vào giỏ hàng!');
         // Chuyển đến trang giỏ hàng
         navigate('/cart');
       } else {
-        alert('Không thể thêm sản phẩm. Vui lòng thử lại.');
+        showError('Không thể thêm sản phẩm. Vui lòng thử lại.');
       }
     } catch (e) {
       console.error('Buy now error:', e?.response?.data || e.message);
       if (e?.response?.status === 401) navigate('/login');
-      else alert('Không thể thực hiện mua ngay. Vui lòng thử lại.');
+      else showError('Không thể thực hiện mua ngay. Vui lòng thử lại.');
     }
   };
 

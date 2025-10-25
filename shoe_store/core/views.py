@@ -1,5 +1,4 @@
 # core/views.py
-from ast import Or
 from rest_framework import viewsets, filters
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.permissions import AllowAny, IsAuthenticatedOrReadOnly
@@ -7,7 +6,6 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework_simplejwt.views import TokenObtainPairView
 from django.conf import settings
-from urllib3 import response
 from .models import Product, Category, Brand, Image, Banner, Promotion, ProductPromotion, User, Cart, CartItem, Order, OrderDetail, Payment, Wishlist, Notification, Size, Color, Gender, Review, ShippingAddress
 from .notification_utils import send_order_created_notification, send_order_confirmed_notification, send_order_shipped_notification, send_order_delivered_notification, send_order_cancelled_notification
 from .serializers import ProductSerializer, CategorySerializer, BrandSerializer, ImageSerializer, BannerSerializer, PromotionSerializer, ProductPromotionSerializer, UserSerializer, CartSerializer, CartItemSerializer, OrderSerializer, OrderDetailSerializer, PaymentSerializer, WishlistSerializer, NotificationSerializer, CustomTokenObtainPairSerializer, SizeSerializer, ColorSerializer, GenderSerializer, ProductAvailabilitySerializer, OrderStatusSerializer, ReviewSerializer, ShippingAddressSerializer

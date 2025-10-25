@@ -487,8 +487,7 @@
 /* Smooth scrolling */
 html {
   scroll-behavior: smooth;
-}
-/* Tabs container */
+}/* Tabs container */
 .react-tabs {
   grid-column: span 2;
   display: flex;
@@ -544,3 +543,4 @@ html {
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
 }
+

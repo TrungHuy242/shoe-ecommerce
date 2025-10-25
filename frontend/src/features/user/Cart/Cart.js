@@ -139,12 +139,16 @@ const Cart = () => {
     setUpdatingItems(prev => new Set(prev).add(cartItemId));
     
     try {
-      await updateCartItemQuantity(cartItemId, newQuantity);
-      setCartItems(items =>
-        items.map(i => (i.id === cartItemId ? { ...i, quantity: newQuantity } : i))
-      );
-      await fetchCartCount();
-      success('Cập nhật số lượng thành công!');
+      const successResult = await updateCartItemQuantity(cartItemId, newQuantity);
+      if (successResult) {
+        setCartItems(items =>
+          items.map(i => (i.id === cartItemId ? { ...i, quantity: newQuantity } : i))
+        );
+        success('Cập nhật số lượng thành công!');
+        console.log('Quantity updated successfully:', cartItemId, newQuantity);
+      } else {
+        error('Có lỗi khi cập nhật số lượng!');
+      }
     } catch (e) {
       console.error('Update quantity error:', e?.response?.data || e.message);
       error('Có lỗi khi cập nhật số lượng!');
@@ -164,34 +168,43 @@ const Cart = () => {
       // tìm productId trước khi xóa khỏi state
       const item = (cartItems || []).find(i => i.id === cartItemId);
   
-      await removeFromCart(cartItemId);
-      await fetchCartCount();
-  
-      // Animation delay before removing from UI
-      setTimeout(() => {
-        setCartItems(items => items.filter(i => i.id !== cartItemId));
-        setSelectedIds(prev => { 
-          const n = new Set(prev); 
-          n.delete(cartItemId); 
-          return n; 
-        });
-        
-        const metaRaw = localStorage.getItem('cart_item_meta');
-        if (metaRaw) {
-          const meta = JSON.parse(metaRaw);
-          delete meta[cartItemId];
-          if (item?.productId) delete meta[item.productId];
-          localStorage.setItem('cart_item_meta', JSON.stringify(meta));
-        }
-        
+      const successResult = await removeFromCart(cartItemId);
+      
+      if (successResult) {
+        // Animation delay before removing from UI
+        setTimeout(() => {
+          setCartItems(items => items.filter(i => i.id !== cartItemId));
+          setSelectedIds(prev => { 
+            const n = new Set(prev); 
+            n.delete(cartItemId); 
+            return n; 
+          });
+          
+          const metaRaw = localStorage.getItem('cart_item_meta');
+          if (metaRaw) {
+            const meta = JSON.parse(metaRaw);
+            delete meta[cartItemId];
+            if (item?.productId) delete meta[item.productId];
+            localStorage.setItem('cart_item_meta', JSON.stringify(meta));
+          }
+          
+          setRemovingItems(prev => {
+            const next = new Set(prev);
+            next.delete(cartItemId);
+            return next;
+          });
+          
+          success('Đã xóa sản phẩm khỏi giỏ hàng!');
+          console.log('Item removed successfully:', cartItemId);
+        }, 300);
+      } else {
+        error('Có lỗi khi xóa sản phẩm!');
         setRemovingItems(prev => {
           const next = new Set(prev);
           next.delete(cartItemId);
           return next;
         });
-        
-        success('Đã xóa sản phẩm khỏi giỏ hàng!');
-      }, 300);
+      }
     } catch (e) {
       console.error('Remove item error:', e?.response?.data || e.message);
       error('Có lỗi khi xóa sản phẩm!');
