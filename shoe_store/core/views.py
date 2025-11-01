@@ -50,10 +50,30 @@ class UserViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save()
 
+class CategoryPagination(PageNumberPagination):
+    page_size = 10
+    page_size_query_param = 'page_size'
+    max_page_size = 100
+
+class SizePagination(PageNumberPagination):
+    page_size = 5
+    page_size_query_param = 'page_size'
+    max_page_size = 100
+
+class ColorPagination(PageNumberPagination):
+    page_size = 5
+    page_size_query_param = 'page_size'
+    max_page_size = 100
+
 class CategoryViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticatedOrReadOnly]
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
+    pagination_class = CategoryPagination  # Phân trang 10 danh mục/trang
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['name', 'description']
+    ordering_fields = ['name', 'id']
+    ordering = ['-id']
 
 class BrandViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticatedOrReadOnly]
@@ -64,11 +84,21 @@ class SizeViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticatedOrReadOnly]
     queryset = Size.objects.all()
     serializer_class = SizeSerializer
+    pagination_class = SizePagination  # Phân trang 5 kích cỡ/trang
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['value']
+    ordering_fields = ['value', 'id']
+    ordering = ['-id']
 
 class ColorViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticatedOrReadOnly]
     queryset = Color.objects.all()
     serializer_class = ColorSerializer
+    pagination_class = ColorPagination  # Phân trang 5 màu sắc/trang
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['value']
+    ordering_fields = ['value', 'id']
+    ordering = ['-id']
 
 class GenderViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticatedOrReadOnly]
@@ -129,6 +159,11 @@ class CartItemViewSet(viewsets.ModelViewSet):
 
 class OrderPagination(PageNumberPagination):
     page_size = 5
+    page_size_query_param = 'page_size'
+    max_page_size = 100
+
+class ProductPagination(PageNumberPagination):
+    page_size = 10
     page_size_query_param = 'page_size'
     max_page_size = 100
 
@@ -387,11 +422,16 @@ class CustomTokenObtainPairView(TokenObtainPairView):
 
 class ProductFilter(django_filters.FilterSet):
     name = django_filters.CharFilter(lookup_expr='icontains')
-    brand = django_filters.CharFilter(field_name='brand__name', lookup_expr='icontains')
-    category = django_filters.CharFilter(field_name='category__name', lookup_expr='icontains')
-    gender = django_filters.CharFilter(field_name='gender__name', lookup_expr='icontains')
+    # Cho phép filter theo ID hoặc name
+    brand = django_filters.NumberFilter(field_name='brand', lookup_expr='exact')  # Filter theo ID
+    category = django_filters.NumberFilter(field_name='category', lookup_expr='exact')  # Filter theo ID
+    gender = django_filters.NumberFilter(field_name='gender', lookup_expr='exact')  # Filter theo ID
     min_price = django_filters.NumberFilter(field_name='price', lookup_expr='gte')
     max_price = django_filters.NumberFilter(field_name='price', lookup_expr='lte')
+    price__gte = django_filters.NumberFilter(field_name='price', lookup_expr='gte')  # Alias cho min_price
+    price__lte = django_filters.NumberFilter(field_name='price', lookup_expr='lte')  # Alias cho max_price
+    stock_quantity__gte = django_filters.NumberFilter(field_name='stock_quantity', lookup_expr='gte')
+    stock_quantity__lte = django_filters.NumberFilter(field_name='stock_quantity', lookup_expr='lte')
     
     class Meta:
         model = Product
@@ -403,6 +443,7 @@ class ProductViewSet(viewsets.ModelViewSet):
     serializer_class = ProductSerializer
     permission_classes = [IsAuthenticatedOrReadOnly]
     parser_classes = [MultiPartParser, FormParser, JSONParser]  # Hỗ trợ multipart/form-data
+    pagination_class = ProductPagination  # Phân trang 10 sản phẩm/trang
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_class = ProductFilter
     search_fields = ['name', 'description', 'brand__name', 'category__name']

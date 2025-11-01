@@ -1,16 +1,18 @@
 .admin-cat-container {
-  padding: 20px;
-  max-width: 1200px;
-  margin: 0 auto;
-  background-color: #fff;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  padding: 2rem;
+  background: #f8fafc;
+  min-height: 100vh;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  color: #1e293b;
 }
 
 .admin-cat-title {
-  font-size: 24px;
-  margin-bottom: 20px;
-  color: #333;
+  font-size: 2rem;
+  font-weight: 700;
+  color: #0f172a;
+  text-align: center;
+  margin-bottom: 2rem;
+  letter-spacing: -0.025em;
 }
 
 .admin-cat-error {
@@ -18,30 +20,141 @@
   margin-bottom: 10px;
 }
 
+/* Statistics Dashboard */
+.admin-cat-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.admin-cat-stat-card {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  text-align: center;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.admin-cat-stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.admin-cat-stat-label {
+  font-size: 0.875rem;
+  color: #6b7280;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+}
+
+.admin-cat-stat-value {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.admin-cat-stat-card.admin-cat-stat-success .admin-cat-stat-value {
+  color: #10b981;
+}
+
+.admin-cat-stat-card.admin-cat-stat-warning .admin-cat-stat-value {
+  color: #f59e0b;
+}
+
+/* Controls */
+.admin-cat-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+  gap: 1rem;
+  background: white;
+  padding: 1.5rem;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.admin-cat-search-input {
+  flex: 1;
+  min-width: 200px;
+  padding: 0.75rem 1rem;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  transition: all 0.2s ease;
+  background: white;
+}
+
+.admin-cat-search-input:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  outline: none;
+}
+
+/* Buttons */
 .admin-cat-btn {
-  padding: 8px 16px;
-  border-radius: 4px;
+  padding: 0.75rem 1.25rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  border: none;
   cursor: pointer;
-  font-size: 14px;
-  margin-right: 10px;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: all 0.2s ease;
+  text-decoration: none;
+}
+
+.admin-cat-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .admin-cat-btn-add {
-  background-color: #4caf50;
-  color: #fff;
-  border: none;
+  background: #3b82f6;
+  color: white;
+}
+
+.admin-cat-btn-add:hover {
+  background: #2563eb;
 }
 
 .admin-cat-btn-edit {
-  background-color: #2196f3;
-  color: #fff;
-  border: none;
+  background: #10b981;
+  color: white;
+  padding: 0.5rem;
+  min-width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+}
+
+.admin-cat-btn-edit:hover {
+  background: #059669;
 }
 
 .admin-cat-btn-delete {
-  background-color: #d32f2f;
-  color: #fff;
-  border: none;
+  background: #ef4444;
+  color: white;
+  padding: 0.5rem;
+  min-width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+}
+
+.admin-cat-btn-delete:hover {
+  background: #dc2626;
 }
 
 .admin-cat-btn-submit {
@@ -56,26 +169,52 @@
   border: none;
 }
 
+/* Table */
 .admin-cat-table {
   width: 100%;
   border-collapse: collapse;
-  margin-top: 20px;
-}
-
-.admin-cat-th, .admin-cat-td {
-  padding: 12px;
-  text-align: left;
-  border-bottom: 1px solid #ddd;
+  background: white;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  margin-bottom: 1rem;
 }
 
 .admin-cat-th {
-  background-color: #f5f5f5;
-  font-weight: bold;
+  background: #f8fafc;
+  padding: 1rem;
+  font-weight: 600;
+  text-align: left;
+  color: #374151;
+  font-size: 0.875rem;
+  border-bottom: 1px solid #e2e8f0;
+  cursor: pointer;
+}
+
+.admin-cat-th:hover {
+  background: #f1f5f9;
+}
+
+.admin-cat-td {
+  padding: 1rem;
+  border-bottom: 1px solid #f1f5f9;
+  color: #374151;
+  vertical-align: middle;
+}
+
+.admin-cat-table tr:hover {
+  background: #f8fafc;
 }
 
 .admin-cat-actions {
   display: flex;
-  gap: 10px;
+  gap: 0.5rem;
+  justify-content: center;
+}
+
+.admin-cat-actions .admin-cat-btn svg {
+  font-size: 1rem;
 }
 
 .admin-cat-filter-input {
@@ -86,25 +225,62 @@
   border-radius: 4px;
 }
 
+/* Pagination */
 .admin-cat-pagination {
-  margin-top: 20px;
+  background: white;
+  padding: 1rem 1.5rem;
+  border-radius: 12px;
+  margin-top: 1rem;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   display: flex;
+  justify-content: space-between;
   align-items: center;
-  gap: 10px;
+  flex-wrap: wrap;
+  gap: 1rem;
 }
 
-.admin-cat-page-size {
-  padding: 5px;
-  border-radius: 4px;
+.admin-cat-pagination-info {
+  color: #6b7280;
+  font-size: 0.9rem;
+  font-weight: 500;
 }
 
+.admin-cat-pagination-btn {
+  padding: 0.5rem 1rem;
+  background: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.admin-cat-pagination-btn:hover:not(:disabled) {
+  background: #2563eb;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.admin-cat-pagination-btn:disabled {
+  background: #d1d5db;
+  color: #9ca3af;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+/* Modal */
 .admin-cat-modal {
   background: #fff;
-  padding: 20px;
-  border-radius: 8px;
+  padding: 2rem;
+  border-radius: 12px;
   max-width: 500px;
   margin: 50px auto;
   outline: none;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
 }
 
 .admin-cat-modal-overlay {
@@ -117,28 +293,118 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  z-index: 1000;
 }
 
 .admin-cat-modal-title {
-  font-size: 20px;
-  margin-bottom: 20px;
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-bottom: 1.5rem;
+  color: #0f172a;
 }
 
 .admin-cat-form {
   display: flex;
   flex-direction: column;
-  gap: 15px;
+  gap: 1rem;
 }
 
 .admin-cat-input {
-  padding: 10px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: 14px;
+  padding: 0.75rem 1rem;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  transition: all 0.2s ease;
+  font-family: inherit;
+}
+
+.admin-cat-input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.admin-cat-input[type="file"] {
+  padding: 0.5rem;
 }
 
 .admin-cat-form-actions {
   display: flex;
-  gap: 10px;
+  gap: 0.75rem;
   justify-content: flex-end;
+  margin-top: 1rem;
+}
+
+.admin-cat-btn-submit {
+  background: #3b82f6;
+  color: white;
+}
+
+.admin-cat-btn-submit:hover {
+  background: #2563eb;
+}
+
+.admin-cat-btn-cancel {
+  background: #6b7280;
+  color: white;
+}
+
+.admin-cat-btn-cancel:hover {
+  background: #4b5563;
+}
+
+/* Image Preview */
+.admin-cat-td img {
+  max-width: 60px;
+  height: 60px;
+  object-fit: cover;
+  border-radius: 6px;
+}
+
+/* Quick Edit */
+.admin-cat-quick-edit {
+  display: inline-flex;
+  align-items: center;
+}
+
+.admin-cat-inline-input {
+  padding: 0.25rem 0.5rem;
+  border: 1px solid #3b82f6;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  outline: none;
+  min-width: 150px;
+}
+
+.admin-cat-inline-input:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .admin-cat-container {
+    padding: 1rem;
+  }
+
+  .admin-cat-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-cat-controls {
+    flex-direction: column;
+  }
+
+  .admin-cat-search-input {
+    width: 100%;
+  }
+
+  .admin-cat-table {
+    font-size: 0.85rem;
+  }
+
+  .admin-cat-pagination {
+    flex-direction: column;
+    text-align: center;
+  }
 }
