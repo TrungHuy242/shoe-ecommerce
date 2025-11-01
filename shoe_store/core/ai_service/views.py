@@ -33,7 +33,7 @@ class AIChatView(APIView):
     
     def post(self, request):
         try:
-            # Handle both DRF request and regular Django request
+            # Handle both DRF request and regular Django request - Optimized
             user_id = str(request.user.id) if request.user.is_authenticated else None
             
             if hasattr(request, 'data'):
@@ -52,43 +52,11 @@ class AIChatView(APIView):
                     "timestamp": timezone.now().isoformat()
                 })
             
-            # Detect intent using AI với confidence score
-            intent, confidence = footy_ai.detect_intent(message)
+            # Optimized: Use single process_message call for all intents
+            response_data = footy_ai.process_message(message, user_id, session_id)
             
-            # Handle different intents
-            if intent == "greeting":
-                response_data = footy_ai.process_message(message, user_id, session_id)
-                
-            elif intent == "product_search":
-                # Use intelligent AI response for product search
-                response_data = footy_ai.process_message(message, user_id, session_id)
-                
-            elif intent == "recommendation":
-                # Use intelligent AI response for recommendations
-                response_data = footy_ai.process_message(message, user_id, session_id)
-                
-            elif intent == "promotion":
-                # Use intelligent AI response for promotions
-                response_data = footy_ai.process_message(message, user_id, session_id)
-                
-            elif intent == "order_status":
-                # Use intelligent AI response for order status
-                response_data = footy_ai.process_message(message, user_id, session_id)
-                    
-            elif intent == "help":
-                # Use intelligent AI response for help
-                response_data = footy_ai.process_message(message, user_id, session_id)
-                
-            elif intent == "order_change_request":
-                # Use intelligent AI response for order change requests
-                response_data = footy_ai.process_message(message, user_id, session_id)
-                
-            else:
-                # Unknown intent - use AI to generate response
-                response_data = footy_ai.process_message(message, user_id, session_id)
-            
-            # Log conversation to database
-            self._log_conversation_to_db(user_id, session_id, message, response_data, intent, confidence)
+            # Log conversation to database asynchronously (non-blocking)
+            self._log_conversation_to_db_async(user_id, session_id, message, response_data)
             
             return Response(response_data)
             
@@ -103,19 +71,19 @@ class AIChatView(APIView):
                 "timestamp": timezone.now().isoformat()
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
-    def _log_conversation_to_db(self, user_id, session_id, message, response_data, intent, confidence):
-        """Log conversation to database"""
+    def _log_conversation_to_db_async(self, user_id, session_id, message, response_data):
+        """Log conversation to database asynchronously - Optimized for speed"""
         try:
-            # Lưu vào database
+            # Lưu vào database với thông tin từ response_data
             conversation = ChatbotConversation.objects.create(
                 user_id=user_id,
                 session_id=session_id,
                 message=message,
                 response=response_data.get('content', ''),
-                intent=intent,
+                intent=response_data.get('intent', 'unknown'),
                 response_type=response_data.get('type', 'message'),
                 sentiment=response_data.get('sentiment'),
-                confidence_score=confidence,
+                confidence_score=response_data.get('confidence', 0.0),
                 processing_time=response_data.get('processing_time', 0.0)
             )
             
@@ -127,8 +95,8 @@ class AIChatView(APIView):
                 'user_id': user_id,
                 'session_id': session_id,
                 'message': message[:100],
-                'intent': intent,
-                'confidence': confidence,
+                'intent': response_data.get('intent', 'unknown'),
+                'confidence': response_data.get('confidence', 0.0),
                 'response_type': response_data.get('type', 'message'),
                 'sentiment': response_data.get('sentiment'),
                 'timestamp': conversation.created_at.isoformat()
@@ -140,8 +108,7 @@ class AIChatView(APIView):
             
         except Exception as e:
             print(f"❌ Database logging error: {e}")
-            import traceback
-            traceback.print_exc()
+            # Không print traceback để tránh làm chậm response
 
 
 class AILogsView(APIView):

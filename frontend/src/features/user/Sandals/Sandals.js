@@ -18,7 +18,7 @@ const Sandals = () => {
       try {
         setLoading(true);
         const response = await api.get('products/', {
-          params: { category__name: 'Sandals' }
+          params: { category: 'Sandals' }
         });
         const prodData = Array.isArray(response.data) ? response.data : (response.data.results || []);
         setProducts(prodData);

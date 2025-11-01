@@ -5,14 +5,11 @@ import App from './App';
 import { ThemeProvider } from 'styled-components';
 import { theme } from './styles/theme';
 import { GlobalStyle } from './styles/global';
-import { AuthProvider } from './context/AuthContext'; // Import AuthProvider
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
   <ThemeProvider theme={theme}>
     <GlobalStyle />
-    <AuthProvider>
-      <App />
-    </AuthProvider>
+    <App />
   </ThemeProvider>
 );

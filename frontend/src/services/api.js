@@ -11,6 +11,12 @@ const api = axios.create({
 // Interceptor thêm token cho mọi request (trừ endpoint auth công khai)
 api.interceptors.request.use(
   (config) => {
+    // Nếu đang gửi FormData (multipart/form-data), xóa Content-Type header
+    // để axios tự động set với boundary
+    if (config.data instanceof FormData) {
+      delete config.headers['Content-Type'];
+    }
+    
     const noAuthUrls = [
       "token/",
       "register/",

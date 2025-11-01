@@ -4,6 +4,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.permissions import AllowAny, IsAuthenticatedOrReadOnly
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from rest_framework_simplejwt.views import TokenObtainPairView
 from django.conf import settings
 from .models import Product, Category, Brand, Image, Banner, Promotion, ProductPromotion, User, Cart, CartItem, Order, OrderDetail, Payment, Wishlist, Notification, Size, Color, Gender, Review, ShippingAddress
@@ -401,11 +402,229 @@ class ProductViewSet(viewsets.ModelViewSet):
     queryset = Product.objects.select_related('brand', 'category', 'gender').prefetch_related('sizes', 'colors', 'images')
     serializer_class = ProductSerializer
     permission_classes = [IsAuthenticatedOrReadOnly]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]  # Hỗ trợ multipart/form-data
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_class = ProductFilter
     search_fields = ['name', 'description', 'brand__name', 'category__name']
-    ordering_fields = ['price', 'sales_count', 'name']
-    ordering = ['-sales_count']  # Sắp xếp theo số lượng bán
+    ordering_fields = ['price', 'sales_count', 'name', 'id']
+    ordering = ['-id']  # Sắp xếp theo ID mới nhất (sản phẩm mới sẽ ở đầu)
+
+    def create(self, request, *args, **kwargs):
+        """Override create để xử lý upload nhiều images và many-to-many fields"""
+        # Lấy danh sách images từ request.FILES
+        images = request.FILES.getlist('images') if hasattr(request.FILES, 'getlist') else []
+        
+        # Xử lý request.data - DRF có thể đã parse thành dict
+        # Nhưng nếu là multipart/form-data, nó vẫn là QueryDict
+        data = {}
+        
+        # Kiểm tra xem request.data có method getlist không (QueryDict)
+        if hasattr(request.data, 'getlist'):
+            # Là QueryDict (multipart/form-data)
+            for key in request.data.keys():
+                if key in ['sizes', 'colors']:
+                    # Many-to-many fields: dùng getlist()
+                    values = request.data.getlist(key)
+                    data[key] = [int(v) for v in values if v and str(v).strip()]
+                else:
+                    # Các field khác: lấy giá trị
+                    data[key] = request.data.get(key)
+        else:
+            # Là dict (đã được parse)
+            for key, value in request.data.items():
+                if key in ['sizes', 'colors']:
+                    # Many-to-many fields: đảm bảo là list và flatten nested lists
+                    result = []
+                    if isinstance(value, list):
+                        for v in value:
+                            if isinstance(v, list):
+                                # Nested list: flatten
+                                for item in v:
+                                    if item and str(item).strip():
+                                        try:
+                                            result.append(int(item) if not isinstance(item, (int, float)) else item)
+                                        except (ValueError, TypeError):
+                                            continue
+                            elif v and str(v).strip():
+                                try:
+                                    result.append(int(v) if not isinstance(v, (int, float)) else v)
+                                except (ValueError, TypeError):
+                                    continue
+                    elif value and str(value).strip():
+                        # Single value
+                        try:
+                            result.append(int(value) if not isinstance(value, (int, float)) else value)
+                        except (ValueError, TypeError):
+                            pass
+                    data[key] = result
+                else:
+                    data[key] = value
+        
+        # Tạo serializer với dữ liệu (không có images vì images là read_only)
+        serializer = self.get_serializer(data=data)
+        serializer.is_valid(raise_exception=True)
+        
+        # Lưu product trước
+        product = serializer.save()
+        
+        # Sau đó tạo các Image objects cho product
+        for image_file in images:
+            try:
+                Image.objects.create(product=product, image=image_file)
+            except Exception as e:
+                print(f"❌ Error creating image: {str(e)}")
+        
+        # Reload serializer để có thông tin đầy đủ bao gồm images
+        serializer = self.get_serializer(product)
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+
+    def update(self, request, *args, **kwargs):
+        """Override update để xử lý upload nhiều images và many-to-many fields"""
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+        
+        new_images = []
+        
+        # Với PATCH và multipart, DRF có thể không tự động merge files
+        # Thử nhiều cách để lấy FILES
+        files_sources = []
+        
+        # Cách 1: request.FILES trực tiếp
+        if request.FILES:
+            files_sources.append(('request.FILES', request.FILES))
+        
+        # Cách 2: request._request.FILES (WSGIRequest gốc)
+        if hasattr(request, '_request'):
+            wsgi_request = request._request
+            if hasattr(wsgi_request, 'FILES') and wsgi_request.FILES:
+                files_sources.append(('request._request.FILES', wsgi_request.FILES))
+        
+        # Cách 3: parser_context
+        if hasattr(request, 'parser_context') and isinstance(request.parser_context, dict):
+            if 'request' in request.parser_context:
+                parser_request = request.parser_context['request']
+                if hasattr(parser_request, 'FILES') and parser_request.FILES:
+                    files_sources.append(('parser_context.request.FILES', parser_request.FILES))
+        
+        # Lấy images từ source đầu tiên có data
+        for source_name, files_source in files_sources:
+            try:
+                if hasattr(files_source, 'getlist'):
+                    # QueryDict - dùng getlist
+                    images_list = files_source.getlist('images')
+                    if images_list:
+                        new_images = [f for f in images_list if f]
+                        break
+                elif isinstance(files_source, dict):
+                    # Dict - kiểm tra 'images'
+                    if 'images' in files_source:
+                        img = files_source['images']
+                        if isinstance(img, list):
+                            new_images = [f for f in img if f]
+                        else:
+                            new_images = [img] if img else []
+                        if new_images:
+                            break
+                # Thử lấy trực tiếp nếu có 'images' key
+                if 'images' in files_source:
+                    img = files_source['images']
+                    if hasattr(files_source, 'getlist'):
+                        new_images = files_source.getlist('images')
+                    else:
+                        new_images = [img] if not isinstance(img, list) else img
+                    new_images = [f for f in new_images if f]
+                    if new_images:
+                        break
+            except Exception:
+                continue
+        
+        # Lấy danh sách images cần xóa
+        images_to_delete = []
+        if hasattr(request.data, 'getlist'):
+            images_to_delete = request.data.getlist('images_to_delete')
+        else:
+            images_to_delete = request.data.get('images_to_delete', [])
+            if not isinstance(images_to_delete, list):
+                images_to_delete = [images_to_delete] if images_to_delete else []
+        
+        # Xử lý request.data tương tự như create
+        data = {}
+        if hasattr(request.data, 'getlist'):
+            # QueryDict
+            for key in request.data.keys():
+                if key in ['sizes', 'colors']:
+                    values = request.data.getlist(key)
+                    # Xử lý từng giá trị, đảm bảo convert đúng
+                    result = []
+                    for v in values:
+                        if v and str(v).strip():
+                            try:
+                                # Nếu v đã là số, giữ nguyên; nếu là string, convert
+                                result.append(int(v) if not isinstance(v, (int, float)) else v)
+                            except (ValueError, TypeError):
+                                continue
+                    data[key] = result
+                else:
+                    data[key] = request.data.get(key)
+        else:
+            # Dict
+            for key, value in request.data.items():
+                if key in ['sizes', 'colors']:
+                    if isinstance(value, list):
+                        # Xử lý list: flatten nếu có nested list
+                        result = []
+                        for v in value:
+                            if isinstance(v, list):
+                                # Nếu là nested list, flatten
+                                for item in v:
+                                    if item and str(item).strip():
+                                        try:
+                                            result.append(int(item) if not isinstance(item, (int, float)) else item)
+                                        except (ValueError, TypeError):
+                                            continue
+                            elif v and str(v).strip():
+                                try:
+                                    result.append(int(v) if not isinstance(v, (int, float)) else v)
+                                except (ValueError, TypeError):
+                                    continue
+                        data[key] = result
+                    else:
+                        # Single value
+                        if value and str(value).strip():
+                            try:
+                                data[key] = [int(value) if not isinstance(value, (int, float)) else value]
+                            except (ValueError, TypeError):
+                                data[key] = []
+                        else:
+                            data[key] = []
+                else:
+                    data[key] = value
+        
+        # Tạo serializer với dữ liệu
+        serializer = self.get_serializer(instance, data=data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        
+        # Lưu product
+        product = serializer.save()
+        
+        # Xóa các images cũ nếu có
+        for image_id in images_to_delete:
+            try:
+                Image.objects.filter(id=int(image_id), product=product).delete()
+            except Exception:
+                pass
+        
+        # Thêm các images mới
+        for image_file in new_images:
+            try:
+                Image.objects.create(product=product, image=image_file)
+            except Exception:
+                pass
+        
+        # Reload serializer để có thông tin đầy đủ bao gồm images
+        serializer = self.get_serializer(product)
+        return Response(serializer.data)
 
 
 class OrderStatusView(APIView):

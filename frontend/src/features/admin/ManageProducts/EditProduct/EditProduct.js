@@ -168,15 +168,31 @@ const EditProduct = () => {
     });
 
     // Thêm hình ảnh mới
-    newImages.forEach(image => data.append('images', image));
+    console.log('New images to upload:', newImages.length);
+    if (newImages && newImages.length > 0) {
+      newImages.forEach((image, index) => {
+        console.log(`Appending new image ${index + 1}:`, image.name, image.type);
+        data.append('images', image);
+      });
+    }
 
     // Thêm danh sách ảnh cần xóa
     imagesToDelete.forEach(imageId => data.append('images_to_delete', imageId));
 
+    // Debug: log FormData entries
+    console.log('FormData entries for update:');
+    for (let pair of data.entries()) {
+      if (pair[1] instanceof File) {
+        console.log(pair[0] + ': [File] ' + pair[1].name);
+      } else {
+        console.log(pair[0] + ': ', pair[1]);
+      }
+    }
+
     try {
-      const response = await api.put(`/products/${id}/`, data, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
+      // Không cần set Content-Type header, axios sẽ tự động set với boundary
+      // Dùng PATCH thay vì PUT để DRF xử lý multipart/form-data tốt hơn
+      const response = await api.patch(`/products/${id}/`, data);
       console.log('Update response:', response.data); // Debug phản hồi thành công
       navigate('/admin/products');
     } catch (err) {

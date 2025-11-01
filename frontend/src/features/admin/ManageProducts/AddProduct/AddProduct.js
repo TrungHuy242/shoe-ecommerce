@@ -109,9 +109,8 @@ const AddProduct = () => {
     });
 
     try {
-      await api.post('/products/', data, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
+      // Không cần set Content-Type header, axios sẽ tự động set với boundary
+      await api.post('/products/', data);
       navigate('/admin/products');
     } catch (err) {
       setError('Thêm sản phẩm thất bại. Vui lòng kiểm tra lại.');

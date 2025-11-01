@@ -18,7 +18,7 @@ const Women = () => {
       try {
         setLoading(true);
         const response = await api.get('products/', {
-          params: { gender__name: 'Nữ' }
+          params: { gender: 'Nữ' }
         });
         const prodData = Array.isArray(response.data) ? response.data : (response.data.results || []);
         setProducts(prodData);

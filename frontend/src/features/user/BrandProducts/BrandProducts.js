@@ -27,7 +27,7 @@ const BrandProducts = () => {
 
         // Fetch products by brand
         const productsRes = await api.get('products/', {
-          params: { brand__name: brandName }
+          params: { brand: brandName }
         });
         const prodData = Array.isArray(productsRes.data) ? productsRes.data : (productsRes.data.results || []);
         setProducts(prodData);

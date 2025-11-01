@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useReactTable, getCoreRowModel, getFilteredRowModel } from '@tanstack/react-table';
 import Modal from 'react-modal';
 import api from '../../../services/api';
 import { useAuth } from '../../../context/AuthContext';
 import './ManageProducts.css';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import ProductDetail from './ProductDetail/ProductDetail'; // Import component mới
 import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -27,6 +27,7 @@ const ManageProducts = () => {
   const [loading, setLoading] = useState(false);
   const { isLoggedIn, role } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   // Kiểm tra quyền admin
   useEffect(() => {
@@ -62,9 +63,23 @@ const ManageProducts = () => {
     }
   };
 
+  // Ref để theo dõi lần đầu mount
+  const isMountedRef = useRef(false);
+
   useEffect(() => {
-    fetchData();
-  }, []);
+    // Lần đầu mount: fetch data
+    if (!isMountedRef.current) {
+      fetchData();
+      isMountedRef.current = true;
+    } else {
+      // Các lần sau: chỉ refresh khi pathname thay đổi về /admin/products
+      // (tức là khi quay lại từ trang khác)
+      if (location.pathname === '/admin/products') {
+        fetchData();
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname]);
 
   // Hàm ánh xạ id sang name
   const getNameById = (id, list) => {

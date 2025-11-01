@@ -61,20 +61,20 @@ class ProductContextBuilder:
     """Xây dựng context sản phẩm từ database"""
     
     @staticmethod
-    def get_products_context(limit: int = 50) -> str:
-        """Lấy context sản phẩm từ database"""
+    def get_products_context(limit: int = 15) -> str:
+        """Lấy context sản phẩm từ database - Optimized for speed"""
         try:
-            # Lấy sản phẩm với thông tin đầy đủ
+            # Lấy sản phẩm với thông tin đầy đủ - Giảm limit để tăng tốc độ
             products = Product.objects.select_related('brand', 'category', 'gender').prefetch_related(
                 'sizes', 'colors', 'images'
-            ).order_by('-id')[:limit]
+            ).order_by('-sales_count', '-id')[:limit]  # Ưu tiên sản phẩm bán chạy
             
             if not products.exists():
                 return "Hiện tại cửa hàng chưa có sản phẩm nào."
             
             context_lines = []
             for product in products:
-                # Tạo mô tả ngắn gọn cho từng sản phẩm
+                # Tạo mô tả ngắn gọn cho từng sản phẩm - Tối ưu cho tốc độ
                 description_parts = []
                 
                 # Tên và thương hiệu
@@ -84,11 +84,10 @@ class ProductContextBuilder:
                 price_formatted = f"{product.price:,.0f} VND"
                 description_parts.append(f"Giá: {price_formatted}")
                 
-                # Mô tả ngắn
+                # Mô tả ngắn - Giảm độ dài để tăng tốc độ
                 if product.description:
-                    # Lấy 100 ký tự đầu của mô tả
-                    short_desc = product.description[:100].strip()
-                    if len(product.description) > 100:
+                    short_desc = product.description[:80].strip()  # Giảm từ 100 xuống 80
+                    if len(product.description) > 80:
                         short_desc += "..."
                     description_parts.append(f"Mô tả: {short_desc}")
                 
@@ -96,14 +95,14 @@ class ProductContextBuilder:
                 if product.gender:
                     description_parts.append(f"Giới tính: {product.gender.name}")
                 
-                # Sizes có sẵn
-                sizes = product.sizes.all()[:5]  # Lấy tối đa 5 size
+                # Sizes có sẵn - Giảm số lượng
+                sizes = product.sizes.all()[:3]  # Giảm từ 5 xuống 3
                 if sizes:
                     size_values = [str(size.value) for size in sizes]
                     description_parts.append(f"Sizes: {', '.join(size_values)}")
                 
-                # Màu sắc có sẵn
-                colors = product.colors.all()[:3]  # Lấy tối đa 3 màu
+                # Màu sắc có sẵn - Giảm số lượng
+                colors = product.colors.all()[:2]  # Giảm từ 3 xuống 2
                 if colors:
                     color_values = [color.value for color in colors]
                     description_parts.append(f"Màu sắc: {', '.join(color_values)}")
@@ -124,14 +123,14 @@ class ProductContextBuilder:
     
     @staticmethod
     def get_promotions_context() -> str:
-        """Lấy context khuyến mãi"""
+        """Lấy context khuyến mãi - Optimized for speed"""
         try:
             now = timezone.now()
             promotions = Promotion.objects.filter(
                 is_active=True,
                 start_date__lte=now,
                 end_date__gte=now
-            ).order_by('-discount_percentage')[:10]
+            ).order_by('-discount_percentage')[:5]  # Giảm từ 10 xuống 5
             
             if not promotions.exists():
                 return "Hiện tại không có khuyến mãi nào."
@@ -440,7 +439,7 @@ class FootyAI:
         self._initialize_gemini_model()
     
     def _initialize_gemini_model(self):
-        """Initialize Gemini model with proper API key"""
+        """Initialize Gemini model with proper API key - Optimized for speed"""
         try:
             # Load API key directly from .env file
             from pathlib import Path
@@ -458,14 +457,22 @@ class FootyAI:
             
             if api_key:
                 genai.configure(api_key=api_key)
-                # Sử dụng Gemini 2.5 Pro - Model mới nhất
-                self.model = genai.GenerativeModel('gemini-2.5-pro')
-                logger.info("Gemini 2.5 Pro model initialized successfully")
+                # Sử dụng Gemini 2.5 Flash - Model nhanh nhất và mạnh nhất hiện tại
+                self.model = genai.GenerativeModel('gemini-2.5-flash')
+                logger.info("Gemini 2.5 Flash model initialized successfully - Optimized for speed")
             else:
                 logger.warning("GEMINI_API_KEY not found, Gemini model not initialized")
         except Exception as e:
-            logger.error(f"Failed to initialize Gemini model: {e}")
-            # Fallback to older model if 2.5 Pro is not available
+            logger.error(f"Failed to initialize Gemini 2.5 Flash model: {e}")
+            # Fallback to Pro model if Flash is not available
+            try:
+                if api_key:
+                    genai.configure(api_key=api_key)
+                    self.model = genai.GenerativeModel('gemini-2.5-pro')
+                    logger.info("Fallback to Gemini 2.5 Pro model")
+            except Exception as fallback_error:
+                logger.error(f"Fallback to Pro model also failed: {fallback_error}")
+                # Final fallback to 1.5 Pro
             try:
                 if api_key:
                     genai.configure(api_key=api_key)
@@ -577,72 +584,201 @@ class FootyAI:
         
         return intent, confidence
     
-    def generate_intelligent_response(self, message: str, intent: str, context: List[Dict] = None) -> str:
-        """Tạo phản hồi thông minh bằng Gemini Pro với context từ database"""
+    def generate_intelligent_response(self, message: str, intent: str, context: List[Dict] = None) -> Dict[str, Any]:
+        """Tạo phản hồi thông minh bằng Gemini Flash với context từ database - Optimized for speed"""
         # Ensure model is initialized
         if not self.model:
             self._initialize_gemini_model()
         
         if not self.model:
-            return self._get_fallback_response(intent, context)
+            return self._get_fallback_response_with_data(intent, context)
         
         try:
-            # Xây dựng context từ database (giảm số lượng để tránh quota)
-            product_context = self.context_builder.get_products_context(20)
+            # Xây dựng context từ database - Tối ưu cho tốc độ
+            product_context = self.context_builder.get_products_context(10)  # Giảm từ 20 xuống 10
             promotion_context = self.context_builder.get_promotions_context()
             
-            # Xây dựng conversation context
+            # Xây dựng conversation context - Tối ưu
             conversation_context = ""
             if context and len(context) > 0:
-                recent_messages = context[-3:]  # Lấy 3 tin nhắn gần nhất
+                recent_messages = context[-2:]  # Giảm từ 3 xuống 2 tin nhắn gần nhất
                 for conv in recent_messages:
                     conversation_context += f"Khách: {conv['message']}\n"
-                    conversation_context += f"Footy: {conv['response'][:100]}...\n"
+                    conversation_context += f"Footy: {conv['response'][:80]}...\n"  # Giảm từ 100 xuống 80
             
-            # Tạo prompt thông minh
-            prompt = f"""Bạn là Footy – nhân viên tư vấn giày dép tại cửa hàng FootFashion.
+            # Tạo prompt ngắn gọn và tối ưu cho Gemini Flash
+            prompt = f"""Bạn là Footy – trợ lý mua sắm giày dép tại FootFashion.
 
-Nhiệm vụ của bạn: Trả lời thân thiện, tự nhiên, như con người thật. Sử dụng tiếng Việt tự nhiên với giọng điệu Gen Z nhưng lịch sự.
-
-Dưới đây là danh sách sản phẩm trong cửa hàng:
+Sản phẩm hiện có:
 {product_context}
 
-Khuyến mãi hiện tại:
+Khuyến mãi:
 {promotion_context}
 
-Ngữ cảnh hội thoại gần đây:
+Hội thoại gần đây:
 {conversation_context}
 
-Khách hàng hỏi: "{message}"
+Khách hỏi: "{message}"
 
-Hướng dẫn trả lời:
-- Trả lời ngắn gọn, tự nhiên, có cảm xúc
-- Có thể dùng emoji nhẹ: 👟 😊 🔥 ❤️
-- Nếu khách hỏi về giá, màu, thương hiệu, hãy trích xuất từ context sản phẩm
-- Nếu không tìm thấy sản phẩm phù hợp, hãy nói lịch sự và gợi ý khác
-- Nếu khách hỏi so sánh 2 sản phẩm, hãy so sánh nhanh ưu nhược điểm
-- Luôn giữ giọng điệu nhiệt tình, thân thiện như nhân viên bán hàng thật
+Trả lời ngắn gọn, thân thiện, dùng emoji nhẹ. Giọng Gen Z nhưng lịch sự. Nếu không có sản phẩm phù hợp thì gợi ý khác.
 
-Hãy trả lời:"""
+Trả lời:"""
 
-            # Gọi Gemini Pro API
+            # Gọi Gemini Flash API với timeout ngắn
             response = self.model.generate_content(prompt)
             
             if response and response.text:
-                return response.text.strip()
+                ai_response = response.text.strip()
             else:
-                return self._get_fallback_response(intent, context)
+                return self._get_fallback_response_with_data(intent, context)
+            
+            # Lấy thông tin sản phẩm và promotions để trả về cùng response
+            products_data = self._get_relevant_products(message, intent)
+            promotions_data = self._get_relevant_promotions(message, intent)
+            
+            return {
+                'content': ai_response,
+                'products': products_data,
+                'promotions': promotions_data
+            }
                 
         except Exception as e:
-            logger.error(f"Gemini API error: {e}")
+            logger.error(f"Gemini Flash API error: {e}")
             # Check if it's a quota error
             if "quota" in str(e).lower() or "429" in str(e):
                 logger.warning("Gemini API quota exceeded, using fallback response")
-            return self._get_fallback_response(intent, context)
+            return self._get_fallback_response_with_data(intent, context)
     
     def generate_ai_response(self, message: str, intent: str, context: List[Dict] = None, sentiment: Dict = None, confidence: float = 0.0) -> str:
         """Wrapper method để tương thích với code cũ"""
-        return self.generate_intelligent_response(message, intent, context)
+        response_data = self.generate_intelligent_response(message, intent, context)
+        if isinstance(response_data, dict):
+            return response_data.get('content', '')
+        return response_data
+    
+    def _get_relevant_products(self, message: str, intent: str) -> List[Dict]:
+        """Lấy sản phẩm liên quan dựa trên message và intent"""
+        try:
+            message_lower = message.lower()
+            
+            # Lấy sản phẩm dựa trên intent
+            if intent in ['product_search', 'recommendation']:
+                # Tìm kiếm sản phẩm dựa trên keywords
+                query = Q()
+                
+                # Brand search
+                brands = ['nike', 'adidas', 'puma', 'vans', 'converse']
+                for brand in brands:
+                    if brand in message_lower:
+                        query |= Q(brand__name__icontains=brand)
+                
+                # Gender search
+                if 'nam' in message_lower and 'nữ' not in message_lower:
+                    query |= Q(gender__name__icontains='Nam')
+                elif 'nữ' in message_lower or 'nu' in message_lower:
+                    query |= Q(gender__name__icontains='Nữ')
+                
+                # Category search
+                categories = ['sneaker', 'boot', 'sandal', 'giày', 'dép']
+                for category in categories:
+                    if category in message_lower:
+                        query |= Q(category__name__icontains=category)
+                
+                # Price search
+                if 'rẻ' in message_lower or 'cheap' in message_lower:
+                    query |= Q(price__lt=1000000)  # Dưới 1 triệu
+                elif 'đắt' in message_lower or 'expensive' in message_lower:
+                    query |= Q(price__gt=2000000)  # Trên 2 triệu
+                
+                # Nếu có query thì tìm kiếm, không thì lấy top products
+                if query:
+                    products = Product.objects.select_related('brand', 'category', 'gender').prefetch_related(
+                        'sizes', 'colors', 'images'
+                    ).filter(query).order_by('-sales_count', '-id')[:3]
+                else:
+                    products = Product.objects.select_related('brand', 'category', 'gender').prefetch_related(
+                        'sizes', 'colors', 'images'
+                    ).order_by('-sales_count', '-id')[:3]
+                
+                # Convert to frontend format
+                products_data = []
+                for product in products:
+                    # Lấy hình ảnh đầu tiên
+                    first_image = product.images.first()
+                    image_url = None
+                    if first_image and first_image.image:
+                        from django.conf import settings
+                        image_url = f"{settings.BACKEND_ORIGIN}{first_image.image.url}"
+                    
+                    products_data.append({
+                        'id': product.id,
+                        'name': product.name,
+                        'brand': product.brand.name if product.brand else 'Unknown',
+                        'price': float(product.price),
+                        'image': image_url,
+                        'link': f"/product/{product.id}"
+                    })
+                
+                return products_data
+            
+            return []
+            
+        except Exception as e:
+            logger.error(f"Error getting relevant products: {e}")
+            return []
+    
+    def _get_relevant_promotions(self, message: str, intent: str) -> List[Dict]:
+        """Lấy promotions liên quan dựa trên message và intent"""
+        try:
+            if intent == 'promotion' or 'khuyến mãi' in message.lower() or 'sale' in message.lower():
+                now = timezone.now()
+                promotions = Promotion.objects.filter(
+                    is_active=True,
+                    start_date__lte=now,
+                    end_date__gte=now
+                ).order_by('-discount_percentage')[:2]
+                
+                promotions_data = []
+                for promo in promotions:
+                    promotions_data.append({
+                        'code': promo.code,
+                        'discount_percentage': promo.discount_percentage,
+                        'description': promo.description or f"Giảm {promo.discount_percentage}%",
+                        'end_date': promo.end_date.isoformat() if promo.end_date else None
+                    })
+                
+                return promotions_data
+            
+            return []
+            
+        except Exception as e:
+            logger.error(f"Error getting relevant promotions: {e}")
+            return []
+    
+    def _get_fallback_response_with_data(self, intent: str, context: List[Dict] = None) -> Dict[str, Any]:
+        """Phản hồi dự phòng với data khi Gemini API lỗi"""
+        responses = {
+            'greeting': "Xin chào! Tôi là Footy, trợ lý mua sắm của FootFashion! 👋\n\nTôi có thể giúp bạn:\n🔍 Tìm kiếm giày dép\n💡 Gợi ý sản phẩm\n🎉 Xem khuyến mãi\n📦 Kiểm tra đơn hàng\n\nBạn cần gì nhé?",
+            'product_search': "Ok nè! 👋 Footy đây, trợ lý bán hàng của FootFashion! Bạn muốn tìm đôi giày nào phù hợp không? 😊",
+            'recommendation': "Chuẩn luôn, để em gợi ý liền nha 👟 Em sẽ tìm những đôi giày phù hợp nhất cho bạn!",
+            'promotion': "Em sẽ kiểm tra khuyến mãi hiện tại cho bạn nha! 🎉",
+            'order_status': "Em sẽ kiểm tra trạng thái đơn hàng của bạn nha! 📦",
+            'order_change_request': "Em sẽ giúp bạn thay đổi đơn hàng! Bạn muốn đổi size, màu sắc hay gì khác? 🔄",
+            'help': "Ok nè! Em ở đây để giúp bạn nha 🆘 Bạn có thể hỏi về giày dép, khuyến mãi, hoặc đơn hàng!",
+            'unknown': "Ui em chưa hiểu rõ ý bạn lắm 😅 Bạn có thể hỏi về giày dép, khuyến mãi, hoặc đơn hàng nha! Em sẽ cố gắng hiểu hơn! 😊"
+        }
+        
+        content = responses.get(intent, responses['unknown'])
+        
+        # Lấy thông tin sản phẩm và promotions cho fallback
+        products_data = self._get_relevant_products("", intent)
+        promotions_data = self._get_relevant_promotions("", intent)
+        
+        return {
+            'content': content,
+            'products': products_data,
+            'promotions': promotions_data
+        }
     
     def _get_fallback_response(self, intent: str, context: List[Dict] = None) -> str:
         """Phản hồi dự phòng khi Gemini API lỗi"""
@@ -659,19 +795,21 @@ Hãy trả lời:"""
         return responses.get(intent, responses['unknown'])
     
     def get_cached_response(self, message: str, intent: str) -> Optional[str]:
-        """Lấy phản hồi từ cache"""
-        cache_key = f"footy_response_{hash(message)}_{intent}"
+        """Lấy phản hồi từ cache - Optimized for speed"""
+        # Tạo cache key đơn giản hơn để tăng tốc độ
+        cache_key = f"footy_{hash(message.lower().strip())}_{intent}"
         return cache.get(cache_key)
     
     def cache_response(self, message: str, intent: str, response: str):
-        """Lưu phản hồi vào cache"""
-        cache_key = f"footy_response_{hash(message)}_{intent}"
-        cache.set(cache_key, response, 3600)  # Cache 1 giờ
+        """Lưu phản hồi vào cache - Optimized for speed"""
+        # Tạo cache key đơn giản hơn và tăng thời gian cache
+        cache_key = f"footy_{hash(message.lower().strip())}_{intent}"
+        cache.set(cache_key, response, 7200)  # Cache 2 giờ thay vì 1 giờ
     
     
     def process_message(self, message: str, user_id: str = None, session_id: str = None) -> Dict[str, Any]:
         """
-        Xử lý tin nhắn chính của chatbot với advanced features
+        Xử lý tin nhắn chính của chatbot - Optimized for speed
         """
         start_time = time.time()
         
@@ -687,24 +825,31 @@ Hãy trả lời:"""
                 "timestamp": timezone.now().isoformat()
             }
         
-        # Lấy ngữ cảnh hội thoại
+        # Lấy ngữ cảnh hội thoại - Tối ưu
         context = self.memory.get_context(user_id or session_id) if (user_id or session_id) else []
         
-        # Phân tích cảm xúc
+        # Phân tích cảm xúc - Tối ưu
         sentiment = self.sentiment_analyzer.analyze_sentiment(message)
         
-        # Nhận diện ý định với confidence score
+        # Nhận diện ý định với confidence score - Tối ưu
         intent, confidence = self.detect_intent(message, context)
         
-        # Kiểm tra cache trước
+        # Kiểm tra cache trước - Ưu tiên cache để tăng tốc độ
         cached_response = self.get_cached_response(message, intent)
         if cached_response:
-            ai_response = cached_response
+            # Cache chỉ lưu content, cần lấy thêm products và promotions
+            ai_response_data = {
+                'content': cached_response,
+                'products': self._get_relevant_products(message, intent),
+                'promotions': self._get_relevant_promotions(message, intent)
+            }
+            logger.info(f"✅ Using cached response for intent: {intent}")
         else:
-            # Tạo phản hồi AI với confidence
-            ai_response = self.generate_ai_response(message, intent, context, sentiment, confidence)
-            # Lưu vào cache
-            self.cache_response(message, intent, ai_response)
+            # Tạo phản hồi AI với confidence - Chỉ khi không có cache
+            ai_response_data = self.generate_intelligent_response(message, intent, context)
+            # Lưu vào cache chỉ content
+            self.cache_response(message, intent, ai_response_data.get('content', ''))
+            logger.info(f"🔄 Generated new response for intent: {intent}")
         
         # Tính thời gian xử lý
         processing_time = (time.time() - start_time) * 1000  # ms
@@ -712,7 +857,9 @@ Hãy trả lời:"""
         # Chuẩn bị response data
         response_data = {
             "type": "message",
-            "content": ai_response,
+            "content": ai_response_data.get('content', ''),
+            "products": ai_response_data.get('products', []),
+            "promotions": ai_response_data.get('promotions', []),
             "intent": intent,
             "confidence": confidence,
             "sentiment": sentiment,
@@ -720,9 +867,9 @@ Hãy trả lời:"""
             "timestamp": timezone.now().isoformat()
         }
         
-        # Lưu vào memory
+        # Lưu vào memory - Chỉ khi cần thiết
         if user_id or session_id:
-            self.memory.add_conversation(user_id or session_id, message, ai_response, intent)
+            self.memory.add_conversation(user_id or session_id, message, ai_response_data.get('content', ''), intent)
         
         return response_data
 

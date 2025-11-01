@@ -26,7 +26,7 @@ const CategoryProducts = () => {
 
         // Fetch products by category name (not ID)
         const productsRes = await api.get('products/', {
-          params: { category__name: categoryRes.data.name }
+          params: { category: categoryRes.data.name }
         });
         const prodData = Array.isArray(productsRes.data) ? productsRes.data : (productsRes.data.results || []);
         setProducts(prodData);
