@@ -100,6 +100,14 @@ DATABASE_PORT=3306
 python manage.py makemigrations
 python manage.py migrate
 ```
+6.1. Import Database (Khuyến nghị):
+# Nếu có file database export trong thư mục database/
+mysql -u your_username -p shoe_store < database/shoe_store.sql
+
+# Sau khi import, bạn sẽ có sẵn dữ liệu mẫu và tài khoản admin**Tài khoản Admin mặc định:**
+- **Username**: `admin`
+- **Password**: `Admin123`
+
 
 7. Tạo superuser (tùy chọn):
 ```bash
