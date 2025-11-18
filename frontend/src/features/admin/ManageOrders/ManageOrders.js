@@ -40,7 +40,7 @@ const ManageOrders = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalOrders, setTotalOrders] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
-  const itemsPerPage = 15;
+  const itemsPerPage = 10;
   const { success, error } = useNotification();
 
   // Debug: Kiểm tra token
@@ -334,7 +334,7 @@ const ManageOrders = () => {
     const order = orders.find(x => x.id === displayId);
     if (!order) return;
     
-    if (!window.confirm(`Bạn có chắc muốn xóa đơn hàng ${displayId}?`)) return;
+    if (!window.confirm(`Bạn có chắc muốn xóa đơn hàng ${displayId}?\n\nĐiều này sẽ xóa vĩnh viễn đơn hàng này và không thể hoàn tác.`)) return;
     
     try {
       await api.delete(`orders/${order.rawId}/`);
@@ -344,11 +344,19 @@ const ManageOrders = () => {
       
       // Update total count
       setTotalOrders(prev => prev - 1);
+      setTotalPages(Math.ceil((totalOrders - 1) / itemsPerPage));
       
-      alert('Xóa đơn hàng thành công');
+      success('Xóa đơn hàng thành công');
+      
+      // Reload để đảm bảo dữ liệu đồng bộ
+      if (orders.length === 1 && currentPage > 1) {
+        setCurrentPage(currentPage - 1);
+      } else {
+        loadOrders(currentPage);
+      }
     } catch (e) {
       console.error('Delete order failed:', e?.response?.data || e.message);
-      alert('Xóa đơn hàng thất bại: ' + (e?.response?.data?.detail || e.message));
+      error('Xóa đơn hàng thất bại: ' + (e?.response?.data?.detail || e.message));
     }
   };
 
@@ -411,8 +419,8 @@ const ManageOrders = () => {
           </div>
           
           <div className="ord-header-actions">
-            <button className="ord-export-btn" onClick={handleExport}>
-              <FaDownload /> Xuất Excel
+            <button className="ord-export-btn" onClick={handleExport} title="Xuất Excel">
+              <FaDownload />
             </button>
           </div>
         </div>
@@ -453,8 +461,9 @@ const ManageOrders = () => {
             <button 
               className={`ord-filter-toggle ${showFilters ? 'ord-active' : ''}`}
               onClick={() => setShowFilters(!showFilters)}
+              title="Bộ lọc"
             >
-              <FaFilter /> Bộ lọc
+              <FaFilter />
             </button>
 
             <div className="ord-sort-controls">
@@ -467,6 +476,7 @@ const ManageOrders = () => {
               <button 
                 className="ord-sort-order-btn"
                 onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+                title={sortOrder === 'asc' ? 'Sắp xếp giảm dần' : 'Sắp xếp tăng dần'}
               >
                 <FaSort />
               </button>
@@ -634,8 +644,9 @@ const ManageOrders = () => {
                 className="ord-page-btn"
                 disabled={currentPage === 1}
                 onClick={() => handlePageChange(currentPage - 1)}
+                title="Trang trước"
               >
-                <FaChevronLeft /> Trước
+                <FaChevronLeft />
               </button>
               
               {Array.from({ length: Math.min(5, totalPages) }, (_, index) => {
@@ -657,8 +668,9 @@ const ManageOrders = () => {
                 className="ord-page-btn"
                 disabled={currentPage === totalPages}
                 onClick={() => handlePageChange(currentPage + 1)}
+                title="Trang sau"
               >
-                Sau <FaChevronRight />
+                <FaChevronRight />
               </button>
             </div>
           </div>

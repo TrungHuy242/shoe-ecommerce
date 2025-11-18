@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { 
   FaUser, 
@@ -43,12 +43,116 @@ const Settings = () => {
     promotions: true,
     newsletters: false
   });
+  const [notificationSettingsLoading, setNotificationSettingsLoading] = useState(false);
+  const [notificationSettingsSaving, setNotificationSettingsSaving] = useState(false);
 
   // Theme settings states
   const [themeSettings, setThemeSettings] = useState({
     theme: 'light',
     language: 'vi'
   });
+  const [themeSettingsLoading, setThemeSettingsLoading] = useState(false);
+  const [themeSettingsSaving, setThemeSettingsSaving] = useState(false);
+
+  // Load preferences from localStorage when component mounts
+  useEffect(() => {
+    if (!user?.id) return;
+    
+    const loadPreferences = () => {
+      try {
+        // Try to load from localStorage first
+        const savedNotificationSettings = localStorage.getItem(`user_${user.id}_notification_settings`);
+        const savedThemeSettings = localStorage.getItem(`user_${user.id}_theme_settings`);
+        
+        if (savedNotificationSettings) {
+          try {
+            const parsed = JSON.parse(savedNotificationSettings);
+            setNotificationSettings(prev => ({ ...prev, ...parsed }));
+          } catch (e) {
+            console.error('Error parsing notification settings:', e);
+          }
+        }
+        
+        if (savedThemeSettings) {
+          try {
+            const parsed = JSON.parse(savedThemeSettings);
+            setThemeSettings(prev => ({ ...prev, ...parsed }));
+            
+            // Apply theme if available
+            if (parsed.theme === 'dark') {
+              document.documentElement.setAttribute('data-theme', 'dark');
+            } else {
+              document.documentElement.setAttribute('data-theme', 'light');
+            }
+          } catch (e) {
+            console.error('Error parsing theme settings:', e);
+          }
+        }
+        
+        // Try to load from backend API (if exists)
+        loadPreferencesFromAPI();
+      } catch (err) {
+        console.error('Error loading preferences:', err);
+      }
+    };
+    
+    loadPreferences();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
+
+  // Load preferences from API
+  const loadPreferencesFromAPI = async () => {
+    if (!user?.id) return;
+    
+    setNotificationSettingsLoading(true);
+    try {
+      // Try to get user preferences from API
+      const response = await api.get(`users/${user.id}/`);
+      const userData = response.data;
+      
+      // If backend has notification_preferences field
+      if (userData.notification_preferences) {
+        try {
+          const prefs = typeof userData.notification_preferences === 'string' 
+            ? JSON.parse(userData.notification_preferences) 
+            : userData.notification_preferences;
+          setNotificationSettings(prev => ({ ...prev, ...prefs }));
+          
+          // Save to localStorage for offline access
+          localStorage.setItem(`user_${user.id}_notification_settings`, JSON.stringify(prefs));
+        } catch (e) {
+          console.error('Error parsing API notification preferences:', e);
+        }
+      }
+      
+      // If backend has theme_preferences field
+      if (userData.theme_preferences) {
+        try {
+          const prefs = typeof userData.theme_preferences === 'string' 
+            ? JSON.parse(userData.theme_preferences) 
+            : userData.theme_preferences;
+          setThemeSettings(prev => ({ ...prev, ...prefs }));
+          
+          // Apply theme
+          if (prefs.theme === 'dark') {
+            document.documentElement.setAttribute('data-theme', 'dark');
+          } else {
+            document.documentElement.setAttribute('data-theme', 'light');
+          }
+          
+          // Save to localStorage for offline access
+          localStorage.setItem(`user_${user.id}_theme_settings`, JSON.stringify(prefs));
+        } catch (e) {
+          console.error('Error parsing API theme preferences:', e);
+        }
+      }
+    } catch (err) {
+      // API endpoint might not exist, that's okay - use localStorage only
+      console.log('Preferences API not available, using localStorage only');
+    } finally {
+      setNotificationSettingsLoading(false);
+    }
+  };
 
   const validatePasswordForm = () => {
     const newErrors = {};
@@ -124,18 +228,90 @@ const Settings = () => {
     }
   };
 
-  const handleNotificationChange = (setting) => {
-    setNotificationSettings(prev => ({
-      ...prev,
-      [setting]: !prev[setting]
-    }));
+  const handleNotificationChange = async (setting) => {
+    const newValue = !notificationSettings[setting];
+    const updatedSettings = {
+      ...notificationSettings,
+      [setting]: newValue
+    };
+    
+    // Update state immediately for better UX
+    setNotificationSettings(updatedSettings);
+    
+    // Save to localStorage
+    if (user?.id) {
+      try {
+        localStorage.setItem(`user_${user.id}_notification_settings`, JSON.stringify(updatedSettings));
+      } catch (e) {
+        console.error('Error saving notification settings to localStorage:', e);
+      }
+    }
+    
+    // Try to save to backend API
+    setNotificationSettingsSaving(true);
+    try {
+      // Try to update via API (PATCH user endpoint)
+      await api.patch(`users/${user.id}/`, {
+        notification_preferences: JSON.stringify(updatedSettings)
+      });
+      
+      success('Đã lưu cài đặt thông báo!');
+    } catch (err) {
+      // API might not support this field, that's okay
+      // Settings are already saved to localStorage
+      console.log('Could not save to API, using localStorage only');
+      // Still show success since localStorage is saved
+      success('Đã lưu cài đặt thông báo!');
+    } finally {
+      setNotificationSettingsSaving(false);
+    }
   };
 
-  const handleThemeChange = (setting, value) => {
-    setThemeSettings(prev => ({
-      ...prev,
+  const handleThemeChange = async (setting, value) => {
+    const updatedSettings = {
+      ...themeSettings,
       [setting]: value
-    }));
+    };
+    
+    // Update state immediately
+    setThemeSettings(updatedSettings);
+    
+    // Apply theme immediately if theme changed
+    if (setting === 'theme') {
+      if (value === 'dark') {
+        document.documentElement.setAttribute('data-theme', 'dark');
+      } else {
+        document.documentElement.setAttribute('data-theme', 'light');
+      }
+    }
+    
+    // Save to localStorage
+    if (user?.id) {
+      try {
+        localStorage.setItem(`user_${user.id}_theme_settings`, JSON.stringify(updatedSettings));
+      } catch (e) {
+        console.error('Error saving theme settings to localStorage:', e);
+      }
+    }
+    
+    // Try to save to backend API
+    setThemeSettingsSaving(true);
+    try {
+      // Try to update via API (PATCH user endpoint)
+      await api.patch(`users/${user.id}/`, {
+        theme_preferences: JSON.stringify(updatedSettings)
+      });
+      
+      success('Đã lưu cài đặt giao diện!');
+    } catch (err) {
+      // API might not support this field, that's okay
+      // Settings are already saved to localStorage
+      console.log('Could not save to API, using localStorage only');
+      // Still show success since localStorage is saved
+      success('Đã lưu cài đặt giao diện!');
+    } finally {
+      setThemeSettingsSaving(false);
+    }
   };
 
   const handleLogout = () => {
@@ -254,6 +430,18 @@ const Settings = () => {
           Chọn loại thông báo bạn muốn nhận.
         </p>
         
+        {notificationSettingsLoading && (
+          <div style={{ padding: '1rem', textAlign: 'center', color: '#666' }}>
+            Đang tải cài đặt...
+          </div>
+        )}
+        
+        {notificationSettingsSaving && (
+          <div style={{ padding: '0.5rem', marginBottom: '1rem', background: '#e3f2fd', borderRadius: '4px', color: '#1976d2', fontSize: '0.9rem' }}>
+            💾 Đang lưu cài đặt...
+          </div>
+        )}
+        
         <div className="notification-settings">
           <div className="notification-item">
             <div className="notification-info">
@@ -344,6 +532,18 @@ const Settings = () => {
         <p className="settings-section-desc">
           Tùy chỉnh giao diện và ngôn ngữ hiển thị.
         </p>
+        
+        {themeSettingsLoading && (
+          <div style={{ padding: '1rem', textAlign: 'center', color: '#666' }}>
+            Đang tải cài đặt...
+          </div>
+        )}
+        
+        {themeSettingsSaving && (
+          <div style={{ padding: '0.5rem', marginBottom: '1rem', background: '#e3f2fd', borderRadius: '4px', color: '#1976d2', fontSize: '0.9rem' }}>
+            💾 Đang lưu cài đặt...
+          </div>
+        )}
         
         <div className="theme-settings">
           <div className="theme-item">

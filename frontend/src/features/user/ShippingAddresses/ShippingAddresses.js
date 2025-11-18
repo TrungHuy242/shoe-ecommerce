@@ -11,9 +11,13 @@ import {
   FaPhone,
   FaHome,
   FaCheck,
-  FaTimes
+  FaTimes,
+  FaArrowLeft,
+  FaShoppingCart
 } from 'react-icons/fa';
 import { useNotification } from '../../../context/NotificationContext';
+import { confirmAlert } from 'react-confirm-alert';
+import 'react-confirm-alert/src/react-confirm-alert.css';
 import api from '../../../services/api';
 import './ShippingAddresses.css';
 
@@ -63,24 +67,37 @@ const ShippingAddresses = () => {
 
     if (!formData.full_name.trim()) {
       newErrors.full_name = 'Vui lòng nhập họ và tên';
+    } else if (formData.full_name.trim().length < 2) {
+      newErrors.full_name = 'Họ và tên phải có ít nhất 2 ký tự';
     }
 
     if (!formData.email.trim()) {
       newErrors.email = 'Vui lòng nhập email';
-    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      newErrors.email = 'Email không hợp lệ';
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim())) {
+      newErrors.email = 'Email không hợp lệ. Vui lòng nhập đúng định dạng (ví dụ: user@example.com)';
     }
 
     if (!formData.phone.trim()) {
       newErrors.phone = 'Vui lòng nhập số điện thoại';
+    } else {
+      // Validate Vietnamese phone number format (10 digits, may start with 0 or +84)
+      const phoneRegex = /^(\+84|0)[3-9]\d{8}$/;
+      const phoneCleaned = formData.phone.trim().replace(/\s+/g, '');
+      if (!phoneRegex.test(phoneCleaned)) {
+        newErrors.phone = 'Số điện thoại không hợp lệ. Vui lòng nhập số điện thoại Việt Nam (10 chữ số, bắt đầu bằng 0 hoặc +84)';
+      }
     }
 
     if (!formData.address.trim()) {
       newErrors.address = 'Vui lòng nhập địa chỉ';
+    } else if (formData.address.trim().length < 5) {
+      newErrors.address = 'Địa chỉ phải có ít nhất 5 ký tự';
     }
 
     if (!formData.city.trim()) {
       newErrors.city = 'Vui lòng nhập tỉnh/thành phố';
+    } else if (formData.city.trim().length < 2) {
+      newErrors.city = 'Tỉnh/thành phố phải có ít nhất 2 ký tự';
     }
 
     setErrors(newErrors);
@@ -120,14 +137,9 @@ const ShippingAddresses = () => {
       }
 
       resetForm();
-      fetchAddresses();
+      await fetchAddresses(); // Wait for fetch to complete
       
-      // Nếu đến từ checkout và đây là địa chỉ đầu tiên, quay lại checkout
-      if (fromCheckout && addresses.length === 0) {
-        setTimeout(() => {
-          navigate('/checkout');
-        }, 1500);
-      }
+      // Không auto redirect nữa - để user tự quyết định
     } catch (err) {
       error('Có lỗi xảy ra. Vui lòng thử lại sau.');
       console.error('Submit address error:', err);
@@ -150,18 +162,30 @@ const ShippingAddresses = () => {
   };
 
   const handleDelete = async (addressId) => {
-    if (!window.confirm('Bạn có chắc chắn muốn xóa địa chỉ này?')) {
-      return;
-    }
-
-    try {
-      await api.delete(`shipping-addresses/${addressId}/`);
-      success('Xóa địa chỉ thành công!');
-      fetchAddresses();
-    } catch (err) {
-      error('Không thể xóa địa chỉ. Vui lòng thử lại sau.');
-      console.error('Delete address error:', err);
-    }
+    confirmAlert({
+      title: 'Xác nhận xóa địa chỉ',
+      message: 'Bạn có chắc chắn muốn xóa địa chỉ này? Hành động này không thể hoàn tác.',
+      buttons: [
+        {
+          label: 'Xóa',
+          onClick: async () => {
+            try {
+              await api.delete(`shipping-addresses/${addressId}/`);
+              success('Xóa địa chỉ thành công!');
+              fetchAddresses();
+            } catch (err) {
+              error('Không thể xóa địa chỉ. Vui lòng thử lại sau.');
+              console.error('Delete address error:', err);
+            }
+          },
+          className: 'confirm-btn-danger'
+        },
+        {
+          label: 'Hủy',
+          onClick: () => {}
+        }
+      ]
+    });
   };
 
   const handleSetDefault = async (addressId) => {
@@ -357,6 +381,27 @@ const ShippingAddresses = () => {
   return (
     <div className="shipping-addresses-page">
       <div className="shipping-addresses-container">
+        {/* Banner thông báo khi đến từ checkout */}
+        {fromCheckout && (
+          <div className="checkout-banner">
+            <div className="checkout-banner-content">
+              <FaShoppingCart className="checkout-banner-icon" />
+              <div className="checkout-banner-text">
+                <strong>Bạn đang trong quá trình thanh toán</strong>
+                <p>Thêm địa chỉ giao hàng để tiếp tục thanh toán</p>
+              </div>
+              <button 
+                className="checkout-back-btn"
+                onClick={() => navigate('/checkout')}
+                title="Quay lại trang thanh toán"
+              >
+                <FaArrowLeft />
+                Quay lại Checkout
+              </button>
+            </div>
+          </div>
+        )}
+
         <div className="page-header">
           <h1>Địa chỉ giao hàng</h1>
           <p>Quản lý địa chỉ giao hàng của bạn</p>

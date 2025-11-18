@@ -174,13 +174,21 @@ const ProductDetail = () => {
   };
 
   const handleAddToCart = async () => {
-    if (!selectedSize) { 
-      showError('Vui lòng chọn size!'); 
+    // Chỉ validate size nếu sản phẩm có sizes
+    if (product.sizes && product.sizes.length > 0 && !selectedSize) { 
+      showError('Vui lòng chọn kích cỡ!'); 
       return; 
     }
-    if (!selectedColor) { 
-      showError('Vui lòng chọn màu!'); 
+    // Chỉ validate color nếu sản phẩm có colors
+    if (product.colors && product.colors.length > 0 && !selectedColor) { 
+      showError('Vui lòng chọn màu sắc!'); 
       return; 
+    }
+    
+    // Kiểm tra hết hàng
+    if (product.stock_quantity === 0) {
+      showError('Sản phẩm đã hết hàng!');
+      return;
     }
 
     const userId = getCurrentUserId();
@@ -213,13 +221,21 @@ const ProductDetail = () => {
   };
 
   const handleBuyNow = async () => {
-    if (!selectedSize) { 
-      showError('Vui lòng chọn size!'); 
+    // Chỉ validate size nếu sản phẩm có sizes
+    if (product.sizes && product.sizes.length > 0 && !selectedSize) { 
+      showError('Vui lòng chọn kích cỡ!'); 
       return; 
     }
-    if (!selectedColor) { 
-      showError('Vui lòng chọn màu!'); 
+    // Chỉ validate color nếu sản phẩm có colors
+    if (product.colors && product.colors.length > 0 && !selectedColor) { 
+      showError('Vui lòng chọn màu sắc!'); 
       return; 
+    }
+    
+    // Kiểm tra hết hàng
+    if (product.stock_quantity === 0) {
+      showError('Sản phẩm đã hết hàng!');
+      return;
     }
 
     const userId = getCurrentUserId();
@@ -421,13 +437,22 @@ const ProductDetail = () => {
             </div>
 
             <div className="prod-action-buttons">
-              <button className="prod-add-to-cart-btn" onClick={handleAddToCart} disabled={addingToCart}>
-                <FaShoppingCart />
-                {addingToCart ? 'Đang thêm...' : 'Thêm vào giỏ hàng'}
-              </button>
-              <button className="prod-buy-now-btn" onClick={handleBuyNow}>
-                Mua Ngay
-              </button>
+              {product.stock_quantity === 0 ? (
+                <button className="prod-add-to-cart-btn prod-out-of-stock" disabled>
+                  <FaShoppingCart />
+                  Hết hàng
+                </button>
+              ) : (
+                <>
+                  <button className="prod-add-to-cart-btn" onClick={handleAddToCart} disabled={addingToCart}>
+                    <FaShoppingCart />
+                    {addingToCart ? 'Đang thêm...' : 'Thêm vào giỏ hàng'}
+                  </button>
+                  <button className="prod-buy-now-btn" onClick={handleBuyNow} disabled={addingToCart}>
+                    Mua Ngay
+                  </button>
+                </>
+              )}
               <button 
                 className={`prod-wishlist-btn ${isLiked ? 'prod-liked' : ''}`}
                 onClick={toggleWishlist}

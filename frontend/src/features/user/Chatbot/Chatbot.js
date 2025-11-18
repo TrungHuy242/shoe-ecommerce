@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './Chatbot.css';
 import api from '../../../services/api';
+import { useNotification } from '../../../context/NotificationContext';
 import { v4 as uuidv4 } from 'uuid';
 
 const Chatbot = () => {
@@ -11,7 +12,9 @@ const Chatbot = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [sessionId] = useState(() => uuidv4()); // Generate session ID for anonymous users
   const messagesEndRef = useRef(null);
+  const hasShownWelcomeRef = useRef(false); // Track if welcome message has been shown
   const navigate = useNavigate();
+  const { success, error } = useNotification();
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -22,29 +25,196 @@ const Chatbot = () => {
   }, [messages]);
 
   useEffect(() => {
-    // Welcome message khi mở chatbot
-    if (isOpen && messages.length === 0) {
+    // Welcome message chỉ hiển thị một lần duy nhất khi mở chatbot lần đầu tiên
+    // Không hiển thị lại khi đóng rồi mở lại
+    if (isOpen && messages.length === 0 && !hasShownWelcomeRef.current) {
       setMessages([
         {
           sender: 'bot',
-          text: 'Xin chào! Tôi là Footy, trợ lý mua sắm của FootFashion! 👋\n\nTôi có thể giúp bạn:\n🔍 Tìm kiếm giày dép\n💡 Gợi ý sản phẩm\n🎉 Xem khuyến mãi\n📦 Kiểm tra đơn hàng\n\nBạn cần gì nhé?',
+          text: 'Chào bạn! Mình là Footy 👋\n\nMình giúp bạn:\n• Tìm giày phù hợp\n• Tư vấn sản phẩm\n• Check khuyến mãi\n• Tra đơn hàng\n\nBạn cần gì nào?',
           timestamp: new Date(),
+          isWelcome: true, // Flag để identify welcome message
         },
       ]);
+      hasShownWelcomeRef.current = true; // Đánh dấu đã hiển thị welcome message
     }
-  }, [isOpen]);
+  }, [isOpen, messages.length]);
 
   const handleProductClick = (productId) => {
     navigate(`/product/${productId}`);
     setIsOpen(false); // Đóng chatbot khi chuyển trang
   };
 
-  const handlePromoClick = (promoCode) => {
-    // Copy mã giảm giá vào clipboard
-    navigator.clipboard.writeText(promoCode).then(() => {
-      // Có thể thêm toast notification ở đây
-      console.log('Mã giảm giá đã được copy:', promoCode);
-    });
+  // Parse markdown links và render thành clickable elements
+  const renderTextWithLinks = (text) => {
+    if (!text) return text;
+    
+    // Check if text contains markdown links
+    const linkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
+    if (!linkRegex.test(text)) {
+      // No links found, return text as is (CSS will handle newlines with white-space: pre-line)
+      return text;
+    }
+    
+    // Reset regex
+    linkRegex.lastIndex = 0;
+    
+    // Split text into parts, handling newlines
+    const parts = [];
+    let lastIndex = 0;
+    let match;
+    let keyIndex = 0;
+    
+    while ((match = linkRegex.exec(text)) !== null) {
+      // Add text before the link (including any newlines)
+      if (match.index > lastIndex) {
+        const textBefore = text.substring(lastIndex, match.index);
+        // Replace newlines with <br /> tags
+        const textParts = textBefore.split('\n');
+        textParts.forEach((part, idx) => {
+          if (idx > 0) {
+            parts.push(<br key={`br-${keyIndex++}`} />);
+          }
+          if (part) {
+            parts.push(part);
+          }
+        });
+      }
+      
+      // Add clickable link
+      const linkText = match[1];
+      const linkUrl = match[2];
+      
+      // Extract product ID from URL (e.g., /product/14 -> 14)
+      const productIdMatch = linkUrl.match(/\/product\/(\d+)/);
+      if (productIdMatch) {
+        const productId = productIdMatch[1];
+        parts.push(
+          <span
+            key={`link-${keyIndex++}`}
+            className="footy-product-link"
+            onClick={() => handleProductClick(productId)}
+            style={{
+              color: '#667eea',
+              cursor: 'pointer',
+              textDecoration: 'underline',
+              fontWeight: 500
+            }}
+          >
+            {linkText}
+          </span>
+        );
+      } else {
+        // Fallback: render as regular link if not a product link
+        parts.push(
+          <a
+            key={`link-${keyIndex++}`}
+            href={linkUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              color: '#667eea',
+              textDecoration: 'underline'
+            }}
+          >
+            {linkText}
+          </a>
+        );
+      }
+      
+      lastIndex = match.index + match[0].length;
+    }
+    
+    // Add remaining text (including any newlines)
+    if (lastIndex < text.length) {
+      const textAfter = text.substring(lastIndex);
+      // Replace newlines with <br /> tags
+      const textParts = textAfter.split('\n');
+      textParts.forEach((part, idx) => {
+        if (idx > 0) {
+          parts.push(<br key={`br-${keyIndex++}`} />);
+        }
+        if (part) {
+          parts.push(part);
+        }
+      });
+    }
+    
+    return parts;
+  };
+
+  const handlePromoClick = async (promoCode) => {
+    try {
+      // Copy mã giảm giá vào clipboard
+      await navigator.clipboard.writeText(promoCode);
+      
+      // Hiển thị toast notification
+      success(`Đã copy mã giảm giá: ${promoCode}`);
+      
+      // Thêm message vào chat để user biết rõ hơn
+      const copyMessage = {
+        sender: 'bot',
+        text: `✅ Đã copy mã giảm giá "${promoCode}" vào clipboard!\n\nBạn có thể dán mã này vào ô nhập mã giảm giá khi thanh toán. 💰`,
+        timestamp: new Date(),
+        isCopyFeedback: true, // Flag để style khác một chút
+      };
+      
+      setMessages((prev) => [...prev, copyMessage]);
+      
+      // Scroll to bottom để user thấy message mới
+      setTimeout(() => {
+        scrollToBottom();
+      }, 100);
+    } catch (err) {
+      // Fallback nếu clipboard API không khả dụng
+      console.error('Copy failed:', err);
+      error('Không thể copy mã giảm giá. Vui lòng copy thủ công: ' + promoCode);
+      
+      // Vẫn hiển thị message trong chat với mã code
+      const fallbackMessage = {
+        sender: 'bot',
+        text: `📋 Mã giảm giá của bạn: "${promoCode}"\n\nVui lòng copy mã này để sử dụng khi thanh toán.`,
+        timestamp: new Date(),
+        isCopyFeedback: true,
+      };
+      
+      setMessages((prev) => [...prev, fallbackMessage]);
+      setTimeout(() => {
+        scrollToBottom();
+      }, 100);
+    }
+  };
+
+  const handleFeedback = async (messageIndex, feedbackType) => {
+    try {
+      const message = messages[messageIndex];
+      
+      // Send feedback to backend
+      await api.post('/ai/feedback/', {
+        message: message.userMessage || '',
+        response: message.text,
+        intent: message.intent,
+        feedback_type: feedbackType,
+        session_id: sessionId,
+        timestamp: message.timestamp
+      });
+      
+      // Update message với feedback status
+      setMessages(prev => {
+        const updated = [...prev];
+        updated[messageIndex] = { ...updated[messageIndex], feedback: feedbackType };
+        return updated;
+      });
+      
+      // Show success notification
+      success(feedbackType === 'positive' 
+        ? 'Cảm ơn phản hồi tích cực! 😊' 
+        : 'Cảm ơn phản hồi! Chúng tôi sẽ cải thiện. 🙏');
+      
+    } catch (err) {
+      console.error('Feedback error:', err);
+      error('Không thể gửi feedback. Vui lòng thử lại!');
+    }
   };
 
   const sendMessage = async (e) => {
@@ -56,6 +226,8 @@ const Chatbot = () => {
       text: input,
       timestamp: new Date(),
     };
+    
+    const userInput = input; // Store for bot message reference
 
     setMessages((prev) => [...prev, userMessage]);
     setInput('');
@@ -63,7 +235,7 @@ const Chatbot = () => {
 
     try {
       const response = await api.post('/ai/chat/', { 
-        message: input,
+        message: userInput,
         session_id: sessionId
       });
       
@@ -78,6 +250,8 @@ const Chatbot = () => {
         sentiment: response.data.sentiment,
         processing_time: response.data.processing_time,
         timestamp: new Date(),
+        userMessage: userInput, // Store user's message for feedback
+        feedback: null // Track feedback status
       };
 
       setMessages((prev) => [...prev, botMessage]);
@@ -96,11 +270,14 @@ const Chatbot = () => {
 
   const renderMessage = (message, index) => {
     const isBot = message.sender === 'bot';
+    const isCopyFeedback = message.isCopyFeedback;
     
     return (
-      <div key={index} className={`footy-message ${isBot ? 'footy-message-bot' : 'footy-message-user'}`}>
+      <div key={index} className={`footy-message ${isBot ? 'footy-message-bot' : 'footy-message-user'} ${isCopyFeedback ? 'footy-message-copy-feedback' : ''}`}>
         <div className="footy-message-content">
-          <div className="footy-message-text">{message.text}</div>
+          <div className={`footy-message-text ${isCopyFeedback ? 'footy-copy-feedback-text' : ''}`}>
+            {renderTextWithLinks(message.text)}
+          </div>
           
           {/* Render products if available */}
           {message.products && message.products.length > 0 && (
@@ -158,6 +335,28 @@ const Chatbot = () => {
           <div className="footy-message-time">
             {message.timestamp.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
           </div>
+          
+          {/* Feedback buttons for bot messages (not welcome or copy feedback) */}
+          {isBot && !message.isWelcome && !isCopyFeedback && (
+            <div className="footy-message-feedback">
+              <button 
+                className={`footy-feedback-btn ${message.feedback === 'positive' ? 'active' : ''}`}
+                onClick={() => handleFeedback(index, 'positive')}
+                disabled={message.feedback !== null}
+                title="Câu trả lời hữu ích"
+              >
+                👍
+              </button>
+              <button 
+                className={`footy-feedback-btn ${message.feedback === 'negative' ? 'active' : ''}`}
+                onClick={() => handleFeedback(index, 'negative')}
+                disabled={message.feedback !== null}
+                title="Câu trả lời chưa tốt"
+              >
+                👎
+              </button>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -186,7 +385,23 @@ const Chatbot = () => {
                 <p>Trợ lý mua sắm AI</p>
               </div>
             </div>
-            <button onClick={() => setIsOpen(false)} className="footy-close-btn">✕</button>
+            <div className="footy-chatbot-header-actions">
+              {messages.length > 0 && (
+                <button 
+                  onClick={() => {
+                    if (window.confirm('Bạn có chắc muốn xóa toàn bộ cuộc trò chuyện?')) {
+                      setMessages([]);
+                      hasShownWelcomeRef.current = false; // Reset để có thể hiển thị welcome message lại
+                    }
+                  }}
+                  className="footy-clear-btn"
+                  title="Xóa cuộc trò chuyện"
+                >
+                  🗑️
+                </button>
+              )}
+              <button onClick={() => setIsOpen(false)} className="footy-close-btn">✕</button>
+            </div>
           </div>
 
           {/* Messages */}

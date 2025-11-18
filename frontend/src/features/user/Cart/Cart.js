@@ -255,7 +255,7 @@ const Cart = () => {
       const subtotal = selectedItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
       
       if (subtotal === 0) {
-        alert('Vui lòng chọn sản phẩm để áp dụng mã giảm giá!');
+        error('Vui lòng chọn sản phẩm để áp dụng mã giảm giá!');
         return;
       }
 
@@ -270,10 +270,10 @@ const Cart = () => {
         type: 'percentage'
       });
       
-      alert(`Áp dụng thành công mã giảm giá ${promotion.discount_percentage}%!`);
+      success(`Áp dụng thành công mã giảm giá ${promotion.discount_percentage}%!`);
     } catch (error) {
       console.error('Apply coupon error:', error);
-      alert('Có lỗi xảy ra khi áp dụng mã giảm giá!');
+      error('Có lỗi xảy ra khi áp dụng mã giảm giá!');
     } finally {
       setCouponLoading(false);
     }

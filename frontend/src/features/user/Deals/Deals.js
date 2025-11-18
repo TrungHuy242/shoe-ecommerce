@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { FaTag, FaCopy, FaCheck, FaFilter, FaFireAlt, FaClock } from 'react-icons/fa';
 import api from '../../../services/api';
+import { useNotification } from '../../../context/NotificationContext';
 import './Deals.css';
 
 export default function Deals() {
@@ -91,7 +92,24 @@ export default function Deals() {
         setCopiedCode(code);
         setTimeout(() => setCopiedCode(''), 1500);
       } catch (err) {
-        alert('Không thể copy mã. Vui lòng copy thủ công: ' + code);
+        // Fallback: Hiển thị mã để user copy thủ công
+        const textArea = document.createElement('textarea');
+        textArea.value = code;
+        textArea.style.position = 'fixed';
+        textArea.style.opacity = '0';
+        document.body.appendChild(textArea);
+        textArea.select();
+        try {
+          document.execCommand('copy');
+          setCopiedCode(code);
+          setTimeout(() => setCopiedCode(''), 1500);
+        } catch (copyErr) {
+          console.error('Copy failed:', copyErr);
+          // Thử copy lần cuối - hiển thị mã trong một div có thể select
+          alert('Mã giảm giá: ' + code + '\n\nVui lòng copy thủ công.');
+        }
+        document.body.removeChild(textArea);
+        return;
       }
       document.body.removeChild(textArea);
     }

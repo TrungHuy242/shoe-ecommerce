@@ -53,16 +53,20 @@ const Register = () => {
 
     if (!formData.email) {
       newErrors.email = 'Vui lòng nhập email';
-    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      newErrors.email = 'Email không hợp lệ';
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim())) {
+      newErrors.email = 'Email không hợp lệ. Vui lòng nhập đúng định dạng (ví dụ: user@example.com)';
     }
 
     if (!formData.password) {
       newErrors.password = 'Vui lòng nhập mật khẩu';
-    } else if (formData.password.length < 6) {
-      newErrors.password = 'Mật khẩu phải có ít nhất 6 ký tự';
-    } else if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(formData.password)) {
-      newErrors.password = 'Mật khẩu phải chứa ít nhất 1 chữ hoa, 1 chữ thường và 1 số';
+    } else if (formData.password.length < 8) {
+      newErrors.password = 'Mật khẩu phải có ít nhất 8 ký tự';
+    } else if (!/(?=.*[a-z])/.test(formData.password)) {
+      newErrors.password = 'Mật khẩu phải chứa ít nhất 1 chữ thường';
+    } else if (!/(?=.*[A-Z])/.test(formData.password)) {
+      newErrors.password = 'Mật khẩu phải chứa ít nhất 1 chữ hoa';
+    } else if (!/(?=.*\d)/.test(formData.password)) {
+      newErrors.password = 'Mật khẩu phải chứa ít nhất 1 chữ số';
     }
 
     if (!formData.confirmPassword) {
@@ -256,8 +260,22 @@ const Register = () => {
                 />
                 <span className="reg-checkmark"></span>
                 Tôi đồng ý với 
-                <Link to="/terms" className="reg-terms-link"> Điều khoản sử dụng</Link> và 
-                <Link to="/privacy" className="reg-terms-link"> Chính sách bảo mật</Link>
+                <a 
+                  href="#" 
+                  className="reg-terms-link"
+                  onClick={(e) => { 
+                    e.preventDefault(); 
+                    alert('Điều khoản sử dụng: Khi đăng ký tài khoản, bạn đồng ý tuân thủ các quy định của FootFashion. Vui lòng liên hệ support@footfashion.vn để biết thêm chi tiết.'); 
+                  }}
+                > Điều khoản sử dụng</a> và 
+                <a 
+                  href="#" 
+                  className="reg-terms-link"
+                  onClick={(e) => { 
+                    e.preventDefault(); 
+                    alert('Chính sách bảo mật: Chúng tôi cam kết bảo vệ thông tin cá nhân của bạn. Vui lòng liên hệ support@footfashion.vn để biết thêm chi tiết.'); 
+                  }}
+                > Chính sách bảo mật</a>
               </label>
               {errors.terms && <span className="reg-field-error">{errors.terms}</span>}
             </div>

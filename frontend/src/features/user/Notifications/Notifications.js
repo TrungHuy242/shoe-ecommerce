@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Bell, Check, CheckCheck, Trash2 } from 'lucide-react';
+import { Bell, Check, CheckCheck, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
 import api from '../../../services/api';
 import { useNotification } from '../../../context/NotificationContext';
 import './Notifications.css';
@@ -9,19 +9,61 @@ const Notifications = () => {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalNotifications, setTotalNotifications] = useState(0);
+  const [readCount, setReadCount] = useState(0);
+  const [filter, setFilter] = useState('all'); // 'all', 'unread', 'read'
+  const itemsPerPage = 10;
   const { success, error } = useNotification();
 
   useEffect(() => {
     fetchNotifications();
     fetchUnreadCount();
+    fetchStats();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    setCurrentPage(1); // Reset to page 1 when filter changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filter]);
+
+  useEffect(() => {
+    fetchNotifications();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentPage, filter]);
 
   const fetchNotifications = async () => {
     try {
       setLoading(true);
-      const response = await api.get('notifications/');
-      const notificationsData = response.data.results || response.data;
-      setNotifications(notificationsData);
+      const params = {
+        page: currentPage,
+        page_size: itemsPerPage,
+      };
+
+      // Filter by read status using backend filter
+      if (filter === 'unread') {
+        params.is_read = 'false';
+      } else if (filter === 'read') {
+        params.is_read = 'true';
+      }
+      // 'all' doesn't need filter param
+
+      const response = await api.get('notifications/', { params });
+      
+      if (Array.isArray(response.data)) {
+        setNotifications(response.data);
+        setTotalNotifications(response.data.length);
+        setTotalPages(1);
+      } else {
+        const notificationsList = response.data.results || [];
+        const totalCount = response.data.count || 0;
+        
+        setNotifications(notificationsList);
+        setTotalNotifications(totalCount);
+        setTotalPages(Math.ceil(totalCount / itemsPerPage));
+      }
     } catch (err) {
       error('Không thể tải thông báo');
       console.error('Fetch notifications error:', err);
@@ -39,6 +81,30 @@ const Notifications = () => {
     }
   };
 
+  const fetchStats = async () => {
+    // Fetch all notifications count and read count for stats
+    try {
+      const [allRes, readRes] = await Promise.all([
+        api.get('notifications/', { params: { page_size: 1 } }),
+        api.get('notifications/', { params: { is_read: 'true', page_size: 1 } })
+      ]);
+      
+      const totalCount = allRes.data.count || (Array.isArray(allRes.data) ? allRes.data.length : 0);
+      const read = readRes.data.count || (Array.isArray(readRes.data) ? readRes.data.filter(n => n.is_read).length : 0);
+      
+      setTotalNotifications(totalCount);
+      setReadCount(read);
+      
+      // Update unread count if needed
+      if (unreadCount === 0 && totalCount > read) {
+        setUnreadCount(totalCount - read);
+      }
+    } catch (err) {
+      // Silently fail, use unread_count endpoint only
+      console.error('Fetch stats error:', err);
+    }
+  };
+
   const markAsRead = async (notificationId) => {
     try {
       await api.post(`notifications/${notificationId}/mark_read/`);
@@ -50,7 +116,11 @@ const Notifications = () => {
         )
       );
       setUnreadCount(prev => Math.max(0, prev - 1));
-      success('Đã đánh dấu đã đọc');
+      // If filtering by unread, remove from list
+      if (filter === 'unread') {
+        setNotifications(prev => prev.filter(notif => notif.id !== notificationId));
+      }
+      // Don't show toast for single mark as read to reduce noise
     } catch (err) {
       error('Không thể đánh dấu đã đọc');
       console.error('Mark as read error:', err);
@@ -64,7 +134,15 @@ const Notifications = () => {
         prev.map(notif => ({ ...notif, is_read: true }))
       );
       setUnreadCount(0);
+      // If filtering by unread, clear the list
+      if (filter === 'unread') {
+        setNotifications([]);
+      }
       success('Đã đánh dấu tất cả đã đọc');
+      // Refresh to update pagination
+      await fetchUnreadCount();
+      await fetchNotifications();
+      await fetchStats();
     } catch (err) {
       error('Không thể đánh dấu tất cả đã đọc');
       console.error('Mark all as read error:', err);
@@ -75,7 +153,23 @@ const Notifications = () => {
     try {
       await api.delete(`notifications/${notificationId}/`);
       setNotifications(prev => prev.filter(notif => notif.id !== notificationId));
-      success('Đã xóa thông báo');
+      setTotalNotifications(prev => Math.max(0, prev - 1));
+      
+      // If current page becomes empty, go to previous page
+      if (notifications.length === 1 && currentPage > 1) {
+        setCurrentPage(prev => prev - 1);
+      } else {
+        // Refresh notifications
+        await fetchNotifications();
+      }
+      
+      // Update unread count if deleted notification was unread
+      const deletedNotif = notifications.find(n => n.id === notificationId);
+      if (deletedNotif && !deletedNotif.is_read) {
+        setUnreadCount(prev => Math.max(0, prev - 1));
+      }
+      
+      // Don't show toast to reduce noise
     } catch (err) {
       error('Không thể xóa thông báo');
       console.error('Delete notification error:', err);
@@ -126,6 +220,16 @@ const Notifications = () => {
     );
   }
 
+  // Statistics
+  const stats = {
+    total: totalNotifications,
+    unread: unreadCount,
+    read: readCount || (totalNotifications - unreadCount)
+  };
+
+  // No need to filter - backend handles it
+  const filteredNotifications = notifications;
+
   return (
     <div className="notifications-page">
       <div className="notifications-container">
@@ -149,9 +253,43 @@ const Notifications = () => {
           )}
         </div>
 
+        {/* Statistics Dashboard */}
+        <div className="notifications-stats">
+          <div 
+            className={`stat-card ${filter === 'all' ? 'active' : ''}`}
+            onClick={() => {
+              setFilter('all');
+              setCurrentPage(1);
+            }}
+          >
+            <div className="stat-label">Tất cả</div>
+            <div className="stat-value">{stats.total}</div>
+          </div>
+          <div 
+            className={`stat-card ${filter === 'unread' ? 'active' : ''}`}
+            onClick={() => {
+              setFilter('unread');
+              setCurrentPage(1);
+            }}
+          >
+            <div className="stat-label">Chưa đọc</div>
+            <div className="stat-value">{stats.unread}</div>
+          </div>
+          <div 
+            className={`stat-card ${filter === 'read' ? 'active' : ''}`}
+            onClick={() => {
+              setFilter('read');
+              setCurrentPage(1);
+            }}
+          >
+            <div className="stat-label">Đã đọc</div>
+            <div className="stat-value">{stats.read}</div>
+          </div>
+        </div>
+
         <div className="notifications-list">
-          {notifications.length > 0 ? (
-            notifications.map((notification) => (
+          {filteredNotifications.length > 0 ? (
+            filteredNotifications.map((notification) => (
               <div 
                 key={notification.id}
                 className={`notification-item ${!notification.is_read ? 'unread' : ''}`}
@@ -256,6 +394,33 @@ const Notifications = () => {
             </div>
           )}
         </div>
+
+        {/* Pagination Controls */}
+        {!loading && totalPages > 1 && (
+          <div className="notifications-pagination">
+            <button
+              className="pagination-btn"
+              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+              disabled={currentPage === 1}
+              title="Trang trước"
+            >
+              <ChevronLeft size={18} />
+              Trước
+            </button>
+            <span className="pagination-info">
+              Trang {currentPage} / {totalPages} (Tổng: {totalNotifications} thông báo)
+            </span>
+            <button
+              className="pagination-btn"
+              onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+              disabled={currentPage === totalPages}
+              title="Trang sau"
+            >
+              Sau
+              <ChevronRight size={18} />
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

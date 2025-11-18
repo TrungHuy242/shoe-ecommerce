@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chatbot Flow - Interactive Canvas</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 15px;
+            overflow-x: hidden;
+        }
+
+        .container {
+            max-width: 100%;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            padding: 30px;
+            height: calc(100vh - 30px);
+            display: flex;
+            flex-direction: column;
+        }
+
+        h1 {
+            text-align: center;
+            color: #2d3748;
+            margin-bottom: 5px;
+            font-size: 24px;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #718096;
+            margin-bottom: 20px;
+            font-size: 13px;
+        }
+
+        .input-section {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            flex-shrink: 0;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 10px;
+            max-width: 700px;
+            margin: 0 auto;
+        }
+
+        input[type="text"] {
+            flex: 1;
+            padding: 10px 15px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+
+        input[type="text"]:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        button {
+            padding: 10px 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+        }
+
+        /* Canvas Flow Container - Full Width */
+        .canvas-container {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 30px 20px;
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        .flow-horizontal {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 15px;
+            width: 100%;
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+
+        .flow-box {
+            background: white;
+            border: 3px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 20px 15px;
+            flex: 1;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.4s ease;
+            position: relative;
+            min-height: 180px;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+        }
+
+        .flow-box:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        }
+
+        /* Box khi active - EXPAND LỚN HƠN */
+        .flow-box.active {
+            border-color: #667eea;
+            box-shadow: 0 15px 40px rgba(102, 126, 234, 0.3);
+            background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%);
+            min-height: 450px !important;
+            flex: 1.8 !important;
+            z-index: 10;
+            transform: scale(1.05);
+        }
+
+        .box-icon {
+            font-size: 40px;
+            margin-bottom: 12px;
+            flex-shrink: 0;
+        }
+
+        .box-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #2d3748;
+            margin-bottom: 8px;
+            flex-shrink: 0;
+        }
+
+        .box-desc {
+            font-size: 12px;
+            color: #718096;
+            line-height: 1.4;
+            margin-bottom: 10px;
+            flex-shrink: 0;
+        }
+
+        .box-details {
+            margin-top: 12px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            font-size: 12px;
+            color: #4a5568;
+            text-align: left;
+            font-family: 'Courier New', monospace;
+            max-height: 0;
+            overflow: hidden;
+            display: block;
+            line-height: 1.6;
+            transition: all 0.4s ease;
+            opacity: 0;
+        }
+
+        /* Khi active - EXPAND details */
+        .flow-box.active .box-details {
+            max-height: 350px;
+            opacity: 1;
+            overflow-y: auto;
+            padding: 15px;
+        }
+
+        /* Scrollbar styling cho details */
+        .box-details::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .box-details::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+
+        .box-details::-webkit-scrollbar-thumb {
+            background: #667eea;
+            border-radius: 10px;
+        }
+
+        .box-details::-webkit-scrollbar-thumb:hover {
+            background: #5568d3;
+        }
+
+        .arrow-horizontal {
+            font-size: 28px;
+            color: #cbd5e0;
+            flex-shrink: 0;
+            padding: 0 5px;
+            margin-top: 90px;
+            transition: all 0.3s;
+        }
+
+        .flow-box.active + .arrow-horizontal {
+            color: #667eea;
+        }
+
+        .output-section {
+            margin-top: 20px;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 12px;
+            color: white;
+            display: none;
+            flex-shrink: 0;
+        }
+
+        .output-section.show {
+            display: block;
+            animation: slideUp 0.3s ease;
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .output-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 12px;
+        }
+
+        .output-content {
+            background: rgba(255,255,255,0.1);
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            white-space: pre-wrap;
+            line-height: 1.6;
+            font-size: 13px;
+        }
+
+        .reset-btn {
+            margin-top: 12px;
+            background: rgba(255,255,255,0.2);
+            border: 2px solid white;
+            padding: 8px 16px;
+            font-size: 13px;
+        }
+
+        .click-hint {
+            text-align: center;
+            color: #718096;
+            font-size: 12px;
+            margin-top: 10px;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🤖 Chatbot Flow - Interactive</h1>
+        <p class="subtitle">Click vào từng bước để xem chi tiết</p>
+
+        <div class="input-section">
+            <div class="input-group">
+                <input type="text" id="userInput" placeholder="Nhập câu hỏi..." value="Tìm giày Nike nam size 40">
+                <button id="loadBtn" onclick="loadData()">📥 Load Data</button>
+            </div>
+            <p class="click-hint">💡 Click vào từng box bên dưới để xem chi tiết</p>
+        </div>
+
+        <div class="canvas-container">
+            <div class="flow-horizontal">
+                <!-- Box 1 -->
+                <div class="flow-box" id="box1" onclick="showDetails(1)">
+                    <div class="box-icon">📥</div>
+                    <div class="box-title">API Receive</div>
+                    <div class="box-desc">Nhận message từ user</div>
+                    <div class="box-details" id="details1"></div>
+                </div>
+
+                <div class="arrow-horizontal">→</div>
+
+                <!-- Box 2 -->
+                <div class="flow-box" id="box2" onclick="showDetails(2)">
+                    <div class="box-icon">🧠</div>
+                    <div class="box-title">NLP Processing</div>
+                    <div class="box-desc">Extract entities & Intent</div>
+                    <div class="box-details" id="details2"></div>
+                </div>
+
+                <div class="arrow-horizontal">→</div>
+
+                <!-- Box 3 -->
+                <div class="flow-box" id="box3" onclick="showDetails(3)">
+                    <div class="box-icon">🗄️</div>
+                    <div class="box-title">Database</div>
+                    <div class="box-desc">Query sản phẩm</div>
+                    <div class="box-details" id="details3"></div>
+                </div>
+
+                <div class="arrow-horizontal">→</div>
+
+                <!-- Box 4 -->
+                <div class="flow-box" id="box4" onclick="showDetails(4)">
+                    <div class="box-icon">🤖</div>
+                    <div class="box-title">AI Generation</div>
+                    <div class="box-desc">Gemini API</div>
+                    <div class="box-details" id="details4"></div>
+                </div>
+
+                <div class="arrow-horizontal">→</div>
+
+                <!-- Box 5 -->
+                <div class="flow-box" id="box5" onclick="showDetails(5)">
+                    <div class="box-icon">💾</div>
+                    <div class="box-title">Logging</div>
+                    <div class="box-desc">Lưu vào DB</div>
+                    <div class="box-details" id="details5"></div>
+                </div>
+
+                <div class="arrow-horizontal">→</div>
+
+                <!-- Box 6 -->
+                <div class="flow-box" id="box6" onclick="showDetails(6)">
+                    <div class="box-icon">📤</div>
+                    <div class="box-title">Response</div>
+                    <div class="box-desc">Trả về kết quả</div>
+                    <div class="box-details" id="details6"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="output-section" id="outputSection">
+            <div class="output-title">✅ Kết quả cuối cùng:</div>
+            <div class="output-content" id="outputContent"></div>
+            <button class="reset-btn" onclick="resetView()">🔄 Reset</button>
+        </div>
+    </div>
+
+    <script>
+        let userInput = '';
+        let extractedEntities = {};
+
+        function loadData() {
+            userInput = document.getElementById('userInput').value.trim();
+            if (!userInput) {
+                alert('Vui lòng nhập câu hỏi!');
+                return;
+            }
+
+            // Extract entities
+            extractedEntities = extractEntities(userInput);
+            
+            // Load data into all boxes
+            loadAllDetails();
+            
+            alert('✅ Data đã load! Click vào từng box để xem chi tiết.');
+        }
+
+        function extractEntities(message) {
+            const entities = {};
+            const lower = message.toLowerCase();
+            
+            if (lower.includes('nike')) entities.brand = 'Nike';
+            else if (lower.includes('adidas')) entities.brand = 'Adidas';
+            else if (lower.includes('puma')) entities.brand = 'Puma';
+            
+            if (lower.includes('nam')) entities.gender = 'Nam';
+            else if (lower.includes('nữ') || lower.includes('nu')) entities.gender = 'Nữ';
+            
+            const sizeMatch = lower.match(/size\s*(\d+)|(\d+)\s*size|size\s*(\d+)/);
+            if (sizeMatch) {
+                entities.size = sizeMatch[1] || sizeMatch[2] || sizeMatch[3];
+            }
+            
+            if (lower.includes('dưới') || lower.includes('duoi')) {
+                const priceMatch = lower.match(/(\d+)\s*(triệu|tr|nghìn|k)/);
+                if (priceMatch) {
+                    let price = parseInt(priceMatch[1]);
+                    if (priceMatch[2].includes('triệu') || priceMatch[2].includes('tr')) {
+                        price *= 1000000;
+                    } else {
+                        price *= 1000;
+                    }
+                    entities.max_price = price;
+                }
+            }
+            
+            return entities;
+        }
+
+        function loadAllDetails() {
+            // Box 1: API Receive
+            document.getElementById('details1').textContent = `Message: "${userInput}"\nUser ID: user_123\nSession ID: session_abc456`;
+
+            // Box 2: NLP Processing
+            document.getElementById('details2').textContent = `Intent: product_search\nConfidence: 0.95\nSentiment: positive (0.8)\n\nEntities:\n${JSON.stringify(extractedEntities, null, 2)}`;
+
+            // Box 3: Database
+            let query = `SELECT * FROM core_product\nWHERE`;
+            if (extractedEntities.brand) query += `\n  brand LIKE '%${extractedEntities.brand}%'`;
+            if (extractedEntities.gender) query += `\n  AND gender LIKE '%${extractedEntities.gender}%'`;
+            if (extractedEntities.size) query += `\n  AND size = '${extractedEntities.size}'`;
+            if (extractedEntities.max_price) query += `\n  AND price <= ${extractedEntities.max_price}`;
+            query += `\nORDER BY sales_count DESC\nLIMIT 3\n\n✅ Found: 3 products`;
+            document.getElementById('details3').textContent = query;
+
+            // Box 4: AI Generation
+            document.getElementById('details4').textContent = `Calling Gemini 2.5 Flash API...\n\nPrompt includes:\n- Product context\n- Conversation history\n- User preferences\n- Rules\n\n✅ Response generated!`;
+
+            // Box 5: Logging
+            document.getElementById('details5').textContent = `Saving to:\n- ChatbotConversation\n- ChatbotMetrics\n\n✅ Logged (async)`;
+
+            // Box 6: Response
+            document.getElementById('details6').textContent = `Returning:\n{\n  "content": "...",\n  "intent": "product_search",\n  "confidence": 0.95,\n  "products": [...]\n}`;
+        }
+
+        function showDetails(boxNumber) {
+            if (!userInput) {
+                alert('Vui lòng load data trước!');
+                return;
+            }
+
+            // Remove active from all boxes
+            for (let i = 1; i <= 6; i++) {
+                document.getElementById('box' + i).classList.remove('active');
+            }
+
+            // Add active to clicked box
+            document.getElementById('box' + boxNumber).classList.add('active');
+
+            // Show output if last box
+            if (boxNumber === 6) {
+                showOutput();
+            } else {
+                document.getElementById('outputSection').classList.remove('show');
+            }
+        }
+
+        function showOutput() {
+            const outputSection = document.getElementById('outputSection');
+            const outputContent = document.getElementById('outputContent');
+            
+            const response = `Mình tìm được 3 đôi Nike nam size 40 nha! 👟
+
+🔗 Link sản phẩm:
+1. [Nike Air Max 270](/product/14) - 2.58tr
+2. [Nike Air Jordan](/product/15) - 12.3tr
+3. [Nike Pegasus](/product/16) - 3.2tr
+
+Bạn muốn xem đôi nào chi tiết hơn không?`;
+
+            outputContent.textContent = response;
+            outputSection.classList.add('show');
+        }
+
+        function resetView() {
+            userInput = '';
+            extractedEntities = {};
+            
+            for (let i = 1; i <= 6; i++) {
+                document.getElementById('box' + i).classList.remove('active');
+                document.getElementById('details' + i).textContent = '';
+            }
+            
+            document.getElementById('outputSection').classList.remove('show');
+            document.getElementById('userInput').value = 'Tìm giày Nike nam size 40';
+        }
+
+        // Allow Enter key
+        document.getElementById('userInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                loadData();
+            }
+        });
+    </script>
+</body>
+</html>

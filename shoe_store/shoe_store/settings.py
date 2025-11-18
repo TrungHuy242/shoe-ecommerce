@@ -27,7 +27,8 @@ GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
 # See https://docs.djangoproject.com/en/5.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-pmp(vj7zpm3x)(y(=gjqhabi24u8s$h(%win$7$_4q@5-1bo)2'
+# Load from .env file, fallback for development only
+SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-pmp(vj7zpm3x)(y(=gjqhabi24u8s$h(%win$7$_4q@5-1bo)2')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -188,6 +189,6 @@ EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'  # For production
 EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
-EMAIL_HOST_USER = 'huytrung0102@gmail.com'
-EMAIL_HOST_PASSWORD = 'lwcf dllz lftj chbs'  # App Password
+EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', 'huytrung0102@gmail.com')
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')  # Load from .env file
 DEFAULT_FROM_EMAIL = 'noreply@footfashion.com'

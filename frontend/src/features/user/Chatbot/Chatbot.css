@@ -61,6 +61,12 @@
   align-items: center;
 }
 
+.footy-chatbot-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .footy-chatbot-header-info {
   display: flex;
   align-items: center;
@@ -88,6 +94,25 @@
   margin: 0;
   font-size: 12px;
   opacity: 0.9;
+}
+
+.footy-clear-btn {
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  color: white;
+  font-size: 18px;
+  cursor: pointer;
+  padding: 6px 10px;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.footy-clear-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: scale(1.1);
 }
 
 .footy-close-btn {
@@ -183,6 +208,37 @@
   line-height: 1.5;
 }
 
+/* Copy Feedback Message Styles */
+.footy-message-copy-feedback .footy-message-content {
+  background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
+  border-left: 4px solid #4caf50;
+  animation: footy-copySuccess 0.5s ease;
+}
+
+@keyframes footy-copySuccess {
+  0% {
+    transform: scale(0.95);
+    opacity: 0.7;
+  }
+  50% {
+    transform: scale(1.02);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.footy-copy-feedback-text {
+  font-weight: 500;
+  color: #2e7d32;
+}
+
+.footy-copy-feedback-text strong {
+  color: #1b5e20;
+  font-weight: 600;
+}
+
 .footy-message-time {
   font-size: 11px;
   margin-top: 4px;
@@ -191,6 +247,57 @@
 
 .footy-message-user .footy-message-time {
   text-align: right;
+}
+
+/* Feedback buttons */
+.footy-message-feedback {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.footy-feedback-btn {
+  background: #f8f9fa;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 16px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  opacity: 0.6;
+}
+
+.footy-feedback-btn:hover:not(:disabled) {
+  opacity: 1;
+  background: #ffffff;
+  border-color: #667eea;
+  transform: scale(1.1);
+}
+
+.footy-feedback-btn.active {
+  opacity: 1;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-color: #667eea;
+  animation: footy-feedbackPulse 0.3s ease;
+}
+
+.footy-feedback-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+@keyframes footy-feedbackPulse {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.2);
+  }
+  100% {
+    transform: scale(1);
+  }
 }
 
 .footy-typing-indicator {

@@ -1,4 +1,4 @@
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import api from '../../../services/api';
 import { useNotification } from '../../../context/NotificationContext';
@@ -22,25 +22,50 @@ const paymentMethodVi = (m) => ({
 
 const OrderDetail = () => {
   const { id } = useParams();
+  const navigate = useNavigate();
   const { success, error } = useNotification();
   const [order, setOrder] = useState(null);
   const [details, setDetails] = useState([]);
   const [user, setUser] = useState(null);
   const [shippingAddress, setShippingAddress] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [errorState, setErrorState] = useState(null);
+  const [errorType, setErrorType] = useState(null); // 'not_found', 'network', 'permission', 'unknown'
 
   useEffect(() => {
     const load = async () => {
+      // Reset error state khi load lại
+      setErrorState(null);
+      setErrorType(null);
+      
       try {
+        setLoading(true);
+        setOrder(null); // Reset order để tránh hiển thị data cũ
+        
+        // Fetch order
         const oRes = await api.get(`orders/${id}/`);
         const o = oRes.data;
+        
+        if (!o) {
+          throw new Error('Order data is null');
+        }
+        
         setOrder(o);
 
+        // Fetch order details
         const dRes = await api.get('order-details/', { params: { order: id } });
         const d = Array.isArray(dRes.data) ? dRes.data : (dRes.data.results || []);
 
+        // Fetch product details for each order detail (with error handling per product)
         const products = await Promise.all(
-          d.map(item => api.get(`products/${item.product}/`).then(r => r.data).catch(() => null))
+          d.map(item => 
+            api.get(`products/${item.product}/`)
+              .then(r => r.data)
+              .catch((productErr) => {
+                console.warn(`Failed to load product ${item.product}:`, productErr);
+                return null; // Continue without product details
+              })
+          )
         );
 
         const enriched = d.map((item, idx) => {
@@ -53,12 +78,17 @@ const OrderDetail = () => {
         });
         setDetails(enriched);
 
+        // Load user info (optional - continue if fails)
         if (o?.user) {
-          // Handle both user ID and user object
           const userId = typeof o.user === 'object' ? o.user.id : o.user;
           if (userId) {
-            const uRes = await api.get(`users/${userId}/`);
-            setUser(uRes.data);
+            try {
+              const uRes = await api.get(`users/${userId}/`);
+              setUser(uRes.data);
+            } catch (userErr) {
+              console.warn('Load user error (non-critical):', userErr);
+              // Continue without user info - không phải lỗi nghiêm trọng
+            }
           }
         }
 
@@ -66,15 +96,285 @@ const OrderDetail = () => {
         if (o?.shipping_address) {
           setShippingAddress(o.shipping_address);
         }
+      } catch (err) {
+        console.error('Load order error:', err);
+        
+        // Phân loại lỗi để hiển thị message phù hợp
+        let errorMsg = 'Không thể tải đơn hàng. Vui lòng thử lại.';
+        let errType = 'unknown';
+        
+        if (!err.response) {
+          // Network error (no response)
+          errorMsg = 'Lỗi kết nối mạng. Vui lòng kiểm tra kết nối internet và thử lại.';
+          errType = 'network';
+        } else {
+          const status = err.response.status;
+          
+          if (status === 404) {
+            errorMsg = `Không tìm thấy đơn hàng với mã #FT${id}. Vui lòng kiểm tra lại mã đơn hàng.`;
+            errType = 'not_found';
+          } else if (status === 403) {
+            errorMsg = 'Bạn không có quyền truy cập đơn hàng này.';
+            errType = 'permission';
+          } else if (status === 401) {
+            errorMsg = 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.';
+            errType = 'unauthorized';
+          } else if (status >= 500) {
+            errorMsg = 'Lỗi máy chủ. Vui lòng thử lại sau vài phút hoặc liên hệ hỗ trợ.';
+            errType = 'server_error';
+          } else {
+            // Try to get error message from response
+            const detailMsg = err?.response?.data?.detail || err?.response?.data?.message;
+            if (detailMsg) {
+              errorMsg = detailMsg;
+            }
+          }
+        }
+        
+        setErrorState(errorMsg);
+        setErrorType(errType);
+        error(errorMsg);
       } finally {
         setLoading(false);
       }
     };
+    
     load();
-  }, [id]);
+  }, [id, error]);
 
-  if (loading) return <div className="order-detail-loading">Đang tải...</div>;
-  if (!order) return <div className="order-detail-error">Không tìm thấy đơn hàng</div>;
+  // Loading state với skeleton loader
+  if (loading) {
+    return (
+      <div className="order-detail-page">
+        <div className="order-detail-loading-container">
+          <div className="order-detail-spinner">
+            <div className="spinner"></div>
+          </div>
+          <p className="order-detail-loading-text">Đang tải thông tin đơn hàng...</p>
+        </div>
+        
+        <div className="order-detail-container">
+          {/* Left column skeleton */}
+          <div className="order-detail-left">
+            <div className="order-detail-section">
+              <div className="skeleton-section-title"></div>
+              <div className="skeleton-info-item"></div>
+              <div className="skeleton-info-item"></div>
+              <div className="skeleton-info-item"></div>
+              <div className="skeleton-info-item"></div>
+              <div className="skeleton-info-item" style={{width: '70%'}}></div>
+            </div>
+            <div className="order-detail-section">
+              <div className="skeleton-section-title"></div>
+              <div className="skeleton-info-item"></div>
+              <div className="skeleton-info-item"></div>
+              <div className="skeleton-info-item" style={{width: '80%'}}></div>
+            </div>
+          </div>
+          
+          {/* Right column skeleton */}
+          <div className="order-detail-right">
+            <div className="order-detail-section">
+              <div className="skeleton-section-title"></div>
+              {/* Product cards skeleton */}
+              <div className="skeleton-product-card">
+                <div className="skeleton-product-header">
+                  <div className="skeleton-product-image"></div>
+                  <div className="skeleton-product-info">
+                    <div className="skeleton-product-name"></div>
+                    <div className="skeleton-product-sub"></div>
+                  </div>
+                </div>
+                <div className="skeleton-product-details">
+                  <div className="skeleton-info-item"></div>
+                  <div className="skeleton-info-item"></div>
+                  <div className="skeleton-info-item" style={{width: '60%'}}></div>
+                </div>
+              </div>
+              <div className="skeleton-product-card">
+                <div className="skeleton-product-header">
+                  <div className="skeleton-product-image"></div>
+                  <div className="skeleton-product-info">
+                    <div className="skeleton-product-name"></div>
+                    <div className="skeleton-product-sub"></div>
+                  </div>
+                </div>
+                <div className="skeleton-product-details">
+                  <div className="skeleton-info-item"></div>
+                  <div className="skeleton-info-item"></div>
+                  <div className="skeleton-info-item" style={{width: '60%'}}></div>
+                </div>
+              </div>
+              
+              {/* Summary skeleton */}
+              <div className="skeleton-summary">
+                <div className="skeleton-summary-row"></div>
+                <div className="skeleton-summary-row" style={{width: '70%'}}></div>
+                <div className="skeleton-summary-total"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state với button quay lại
+  if (errorState || (!loading && !order)) {
+    // Determine error icon and title based on error type
+    const getErrorIcon = () => {
+      switch (errorType) {
+        case 'not_found':
+          return '🔍';
+        case 'network':
+          return '📡';
+        case 'permission':
+          return '🚫';
+        case 'unauthorized':
+          return '🔐';
+        case 'server_error':
+          return '⚠️';
+        default:
+          return '⚠️';
+      }
+    };
+
+    const getErrorTitle = () => {
+      switch (errorType) {
+        case 'not_found':
+          return 'Không tìm thấy đơn hàng';
+        case 'network':
+          return 'Lỗi kết nối';
+        case 'permission':
+          return 'Không có quyền truy cập';
+        case 'unauthorized':
+          return 'Phiên đăng nhập hết hạn';
+        case 'server_error':
+          return 'Lỗi máy chủ';
+        default:
+          return 'Không thể tải đơn hàng';
+      }
+    };
+
+    // Don't show retry for not_found errors
+    const showRetry = errorType !== 'not_found' && errorType !== 'permission';
+
+    return (
+      <div className="order-detail-page">
+        <div className="order-detail-error-container">
+          <div className="order-detail-error-icon">{getErrorIcon()}</div>
+          <h2 className="order-detail-error-title">{getErrorTitle()}</h2>
+          <p className="order-detail-error-message">
+            {errorState || 'Không tìm thấy đơn hàng. Vui lòng kiểm tra lại hoặc liên hệ hỗ trợ.'}
+          </p>
+          <div className="order-detail-error-actions">
+            <button 
+              className="order-detail-back-btn"
+              onClick={() => navigate('/orders')}
+            >
+              ← Quay lại lịch sử đơn hàng
+            </button>
+            {showRetry && (
+              <button 
+                className="order-detail-retry-btn"
+                onClick={async () => {
+                  setErrorState(null);
+                  setErrorType(null);
+                  setLoading(true);
+                  
+                  // Retry load order data (không reload page)
+                  try {
+                    const oRes = await api.get(`orders/${id}/`);
+                    const o = oRes.data;
+                    
+                    if (!o) {
+                      throw new Error('Order data is null');
+                    }
+                    
+                    setOrder(o);
+
+                    const dRes = await api.get('order-details/', { params: { order: id } });
+                    const d = Array.isArray(dRes.data) ? dRes.data : (dRes.data.results || []);
+
+                    const products = await Promise.all(
+                      d.map(item => 
+                        api.get(`products/${item.product}/`)
+                          .then(r => r.data)
+                          .catch(() => null)
+                      )
+                    );
+
+                    const enriched = d.map((item, idx) => {
+                      const p = products[idx];
+                      return {
+                        ...item,
+                        productName: p?.name || `Sản phẩm #${item.product}`,
+                        productImage: (p?.images && p.images[0]?.image) || p?.image || '/assets/images/products/placeholder-product.jpg'
+                      };
+                    });
+                    setDetails(enriched);
+
+                    if (o?.user) {
+                      const userId = typeof o.user === 'object' ? o.user.id : o.user;
+                      if (userId) {
+                        try {
+                          const uRes = await api.get(`users/${userId}/`);
+                          setUser(uRes.data);
+                        } catch (userErr) {
+                          console.warn('Load user error (non-critical):', userErr);
+                        }
+                      }
+                    }
+
+                    if (o?.shipping_address) {
+                      setShippingAddress(o.shipping_address);
+                    }
+                  } catch (retryErr) {
+                    console.error('Retry load order error:', retryErr);
+                    let errorMsg = 'Không thể tải đơn hàng. Vui lòng thử lại.';
+                    let errType = 'unknown';
+                    
+                    if (!retryErr.response) {
+                      errorMsg = 'Lỗi kết nối mạng. Vui lòng kiểm tra kết nối internet và thử lại.';
+                      errType = 'network';
+                    } else {
+                      const status = retryErr.response.status;
+                      if (status === 404) {
+                        errorMsg = `Không tìm thấy đơn hàng với mã #FT${id}.`;
+                        errType = 'not_found';
+                      } else if (status === 403) {
+                        errorMsg = 'Bạn không có quyền truy cập đơn hàng này.';
+                        errType = 'permission';
+                      } else {
+                        const detailMsg = retryErr?.response?.data?.detail || retryErr?.response?.data?.message;
+                        if (detailMsg) errorMsg = detailMsg;
+                      }
+                    }
+                    
+                    setErrorState(errorMsg);
+                    setErrorType(errType);
+                    error(errorMsg);
+                  } finally {
+                    setLoading(false);
+                  }
+                }}
+              >
+                🔄 Thử lại
+              </button>
+            )}
+            {errorType === 'unauthorized' && (
+              <button 
+                className="order-detail-login-btn"
+                onClick={() => navigate('/login')}
+              >
+                🔐 Đăng nhập lại
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // Tính toán chi tiết giá
   const calculatedSubtotal = details.reduce((sum, item) => sum + (Number(item.unit_price || 0) * Number(item.quantity || 0)), 0);
@@ -93,10 +393,27 @@ const OrderDetail = () => {
       
       // Reload order data
       const oRes = await api.get(`orders/${id}/`);
-      setOrder(oRes.data);
+      const updatedOrder = oRes.data;
+      
+      if (updatedOrder) {
+        setOrder(updatedOrder);
+      } else {
+        throw new Error('Failed to reload order data');
+      }
     } catch (err) {
-      error('Có lỗi xảy ra khi xác nhận nhận hàng. Vui lòng thử lại.');
       console.error('Confirm delivery error:', err);
+      const errorMsg = err?.response?.data?.detail || err?.response?.data?.message || 'Có lỗi xảy ra khi xác nhận nhận hàng. Vui lòng thử lại.';
+      error(errorMsg);
+      
+      // Reload order data nếu có thể
+      try {
+        const oRes = await api.get(`orders/${id}/`);
+        if (oRes.data) {
+          setOrder(oRes.data);
+        }
+      } catch (reloadErr) {
+        console.error('Failed to reload order after confirm:', reloadErr);
+      }
     } finally {
       setLoading(false);
     }

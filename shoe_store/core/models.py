@@ -163,15 +163,6 @@ class Wishlist(models.Model):
     product = models.ForeignKey(Product, on_delete=models.CASCADE, null=True, blank=True)
     added_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
 
-class Notification(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True)  # Thay Customer bằng User
-    title = models.CharField(max_length=50)
-    type = models.CharField(max_length=50)
-    related_id = models.IntegerField()  # ID liên quan
-    is_read = models.BooleanField(default=False)
-    sent_at = models.DateTimeField(auto_now_add=True)
-    created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
-
 class Review(models.Model):
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='product_reviews')
     user = models.ForeignKey(User, on_delete=models.CASCADE)
@@ -269,14 +260,129 @@ class ChatbotConversation(models.Model):
 
 class ChatbotFeedback(models.Model):
     """Model để lưu feedback của user về chatbot"""
-    conversation = models.ForeignKey(ChatbotConversation, on_delete=models.CASCADE, related_name='feedbacks')
-    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
-    rating = models.IntegerField(choices=[(i, i) for i in range(1, 6)])  # 1-5 stars
-    feedback_text = models.TextField(blank=True, null=True)
+    user_id = models.CharField(max_length=100, null=True, blank=True)  # User ID hoặc None
+    session_id = models.CharField(max_length=100, null=True, blank=True)  # Session ID cho anonymous users
+    message = models.TextField(blank=True)  # User's original message
+    response = models.TextField(blank=True)  # Bot's response
+    intent = models.CharField(max_length=50, blank=True)  # Intent detected
+    feedback_type = models.CharField(max_length=20, choices=[('positive', 'Positive'), ('negative', 'Negative')], default='positive')  # Thumbs up/down
     created_at = models.DateTimeField(auto_now_add=True)
     
     class Meta:
         ordering = ['-created_at']
     
     def __str__(self):
-        return f"Feedback {self.rating}/5 - {self.conversation}"
+        return f"Feedback {self.feedback_type} - {self.intent} - {self.created_at.strftime('%Y-%m-%d %H:%M')}"
+
+
+class ChatbotMetrics(models.Model):
+    """Model để lưu metrics và analytics của chatbot"""
+    date = models.DateField(unique=True, db_index=True)
+    total_interactions = models.IntegerField(default=0)  # Tổng số lượt tương tác
+    unique_users = models.IntegerField(default=0)  # Số user duy nhất
+    unique_sessions = models.IntegerField(default=0)  # Số session duy nhất
+    product_searches = models.IntegerField(default=0)  # Số lượt tìm kiếm sản phẩm
+    product_clicks = models.IntegerField(default=0)  # Số lượt click vào sản phẩm
+    product_purchases = models.IntegerField(default=0)  # Số lượt mua hàng từ chatbot
+    promotion_views = models.IntegerField(default=0)  # Số lượt xem khuyến mãi
+    order_queries = models.IntegerField(default=0)  # Số lượt hỏi về đơn hàng
+    positive_feedback = models.IntegerField(default=0)  # Số feedback tích cực
+    negative_feedback = models.IntegerField(default=0)  # Số feedback tiêu cực
+    avg_confidence_score = models.FloatField(default=0.0)  # Điểm confidence trung bình
+    avg_processing_time = models.FloatField(default=0.0)  # Thời gian xử lý trung bình (ms)
+    conversion_rate = models.FloatField(default=0.0)  # Tỷ lệ chuyển đổi (product_clicks / product_searches)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ['-date']
+        verbose_name = 'Chatbot Metric'
+        verbose_name_plural = 'Chatbot Metrics'
+    
+    def __str__(self):
+        return f"Metrics {self.date} - {self.total_interactions} interactions"
+    
+    def calculate_conversion_rate(self):
+        """Tính tỷ lệ chuyển đổi"""
+        if self.product_searches > 0:
+            self.conversion_rate = (self.product_clicks / self.product_searches) * 100
+        else:
+            self.conversion_rate = 0.0
+        return self.conversion_rate
+
+
+class IntentTraining(models.Model):
+    """Model để lưu training data cho intents"""
+    intent_name = models.CharField(max_length=50, unique=True)  # Ví dụ: "product_search", "ask_size"
+    description = models.TextField(blank=True)  # Mô tả intent
+    keywords = models.JSONField(default=list)  # List keywords: ["tìm", "search", "giày"]
+    phrases = models.JSONField(default=list)  # List phrases: ["tìm giày nike", "cho tôi xem sản phẩm"]
+    response_template = models.TextField(blank=True)  # Template response
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ['intent_name']
+        verbose_name = 'Intent Training'
+        verbose_name_plural = 'Intent Training Data'
+    
+    def __str__(self):
+        return f"{self.intent_name} ({len(self.keywords)} keywords, {len(self.phrases)} phrases)"
+
+
+class BotConfig(models.Model):
+    """Model để lưu cấu hình bot (response rules, features)"""
+    key = models.CharField(max_length=100, unique=True)  # Ví dụ: "auto_show_links", "alternatives_limit"
+    value = models.JSONField()  # Giá trị config (có thể là bool, int, string, object)
+    description = models.TextField(blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ['key']
+        verbose_name = 'Bot Configuration'
+        verbose_name_plural = 'Bot Configurations'
+    
+    def __str__(self):
+        return f"{self.key} = {self.value}"
+
+
+class ConversationTag(models.Model):
+    """Model để tag conversations cho training"""
+    conversation = models.ForeignKey(ChatbotConversation, on_delete=models.CASCADE, related_name='tags')
+    tag_name = models.CharField(max_length=50)  # Ví dụ: "fallback", "wrong_intent", "needs_training"
+    note = models.TextField(blank=True)  # Ghi chú cho admin
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        ordering = ['-created_at']
+        unique_together = ('conversation', 'tag_name')
+    
+    def __str__(self):
+        return f"{self.tag_name} - {self.conversation.id}"
+
+
+class Alert(models.Model):
+    """Model để lưu alerts và notifications cho admin"""
+    ALERT_TYPES = [
+        ('high_fallback', 'High Fallback Rate'),
+        ('api_error', 'API Error'),
+        ('db_error', 'Database Error'),
+        ('low_confidence', 'Low Confidence Score'),
+        ('slow_response', 'Slow Response Time'),
+        ('system', 'System Alert'),
+    ]
+    
+    alert_type = models.CharField(max_length=50, choices=ALERT_TYPES)
+    title = models.CharField(max_length=200)
+    message = models.TextField()
+    severity = models.CharField(max_length=20, choices=[('low', 'Low'), ('medium', 'Medium'), ('high', 'High'), ('critical', 'Critical')], default='medium')
+    is_resolved = models.BooleanField(default=False)
+    resolved_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return f"{self.alert_type} - {self.title} ({self.severity})"

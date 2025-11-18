@@ -1,37 +1,36 @@
 # core/views.py
-from rest_framework import viewsets, filters
+from rest_framework import viewsets, filters, status, permissions
 from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework.permissions import AllowAny, IsAuthenticatedOrReadOnly
+from rest_framework.permissions import AllowAny, IsAuthenticatedOrReadOnly, IsAuthenticated
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
+from rest_framework.decorators import action, api_view, permission_classes
+from rest_framework.serializers import Serializer, IntegerField, CharField
+from rest_framework.pagination import PageNumberPagination
 from rest_framework_simplejwt.views import TokenObtainPairView
 from django.conf import settings
+from django.db import transaction
+from django.db.models import F, Q, Count
+from django.views.decorators.csrf import csrf_exempt
+from django.utils import timezone
+from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
+from django.utils.encoding import force_bytes, force_str
+from django.contrib.auth import authenticate
+from django.contrib.auth.tokens import default_token_generator
+from django.core.mail import send_mail
+from django_filters import rest_framework as django_filters
+from datetime import datetime, timedelta
+from decimal import Decimal
+import re
+import difflib
+import secrets
+import string
+
 from .models import Product, Category, Brand, Image, Banner, Promotion, ProductPromotion, User, Cart, CartItem, Order, OrderDetail, Payment, Wishlist, Notification, Size, Color, Gender, Review, ShippingAddress
 from .notification_utils import send_order_created_notification, send_order_confirmed_notification, send_order_shipped_notification, send_order_delivered_notification, send_order_cancelled_notification
 from .serializers import ProductSerializer, CategorySerializer, BrandSerializer, ImageSerializer, BannerSerializer, PromotionSerializer, ProductPromotionSerializer, UserSerializer, CartSerializer, CartItemSerializer, OrderSerializer, OrderDetailSerializer, PaymentSerializer, WishlistSerializer, NotificationSerializer, CustomTokenObtainPairSerializer, SizeSerializer, ColorSerializer, GenderSerializer, ProductAvailabilitySerializer, OrderStatusSerializer, ReviewSerializer, ShippingAddressSerializer
 from .permissions import IsAdminOrReadOnly, IsCustomerOrAdmin
-from rest_framework import status
-from rest_framework.decorators import action ,api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
-from django.db import transaction
-from django.db.models import F, Q
-from django.views.decorators.csrf import csrf_exempt
-from django.utils import timezone
-import re
-from rest_framework import permissions, status, viewsets
-from rest_framework.decorators import action
-from rest_framework.response import Response
-from rest_framework.serializers import Serializer, IntegerField, CharField
-from core.models import Product, OrderDetail
-import difflib
-from django.db.models import Count
-from django.utils import timezone
-from datetime import datetime, timedelta
-from django_filters import rest_framework as django_filters
-from decimal import Decimal
-from rest_framework.pagination import PageNumberPagination
-from django.contrib.auth.tokens import default_token_generator
 from django.core.mail import send_mail
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.encoding import force_bytes, force_str
@@ -158,7 +157,12 @@ class CartItemViewSet(viewsets.ModelViewSet):
         return CartItem.objects.filter(cart__user=self.request.user)
 
 class OrderPagination(PageNumberPagination):
-    page_size = 5
+    page_size = 10
+    page_size_query_param = 'page_size'
+    max_page_size = 100
+
+class NotificationPagination(PageNumberPagination):
+    page_size = 10
     page_size_query_param = 'page_size'
     max_page_size = 100
 
@@ -424,14 +428,40 @@ class ProductFilter(django_filters.FilterSet):
     name = django_filters.CharFilter(lookup_expr='icontains')
     # Cho phép filter theo ID hoặc name
     brand = django_filters.NumberFilter(field_name='brand', lookup_expr='exact')  # Filter theo ID
-    category = django_filters.NumberFilter(field_name='category', lookup_expr='exact')  # Filter theo ID
-    gender = django_filters.NumberFilter(field_name='gender', lookup_expr='exact')  # Filter theo ID
+    # Category: Hỗ trợ cả ID (number) và tên (string)
+    category = django_filters.CharFilter(method='filter_category')
+    # Gender: Hỗ trợ cả ID (number) và tên (string)
+    gender = django_filters.CharFilter(method='filter_gender')
     min_price = django_filters.NumberFilter(field_name='price', lookup_expr='gte')
     max_price = django_filters.NumberFilter(field_name='price', lookup_expr='lte')
     price__gte = django_filters.NumberFilter(field_name='price', lookup_expr='gte')  # Alias cho min_price
     price__lte = django_filters.NumberFilter(field_name='price', lookup_expr='lte')  # Alias cho max_price
     stock_quantity__gte = django_filters.NumberFilter(field_name='stock_quantity', lookup_expr='gte')
     stock_quantity__lte = django_filters.NumberFilter(field_name='stock_quantity', lookup_expr='lte')
+    
+    def filter_category(self, queryset, name, value):
+        """Filter category theo ID (nếu là số) hoặc theo tên (nếu là string)"""
+        if not value:
+            return queryset
+        # Nếu value là số → filter theo ID
+        try:
+            category_id = int(value)
+            return queryset.filter(category__id=category_id)
+        except (ValueError, TypeError):
+            # Nếu không phải số → filter theo tên
+            return queryset.filter(category__name__icontains=value)
+    
+    def filter_gender(self, queryset, name, value):
+        """Filter gender theo ID (nếu là số) hoặc theo tên (nếu là string)"""
+        if not value:
+            return queryset
+        # Nếu value là số → filter theo ID
+        try:
+            gender_id = int(value)
+            return queryset.filter(gender__id=gender_id)
+        except (ValueError, TypeError):
+            # Nếu không phải số → filter theo tên (exact match cho gender)
+            return queryset.filter(gender__name=value)
     
     class Meta:
         model = Product
@@ -857,9 +887,20 @@ class NotificationViewSet(viewsets.ModelViewSet):
     queryset = Notification.objects.all()
     serializer_class = NotificationSerializer
     permission_classes = [IsAuthenticated]
+    pagination_class = NotificationPagination  # Phân trang 10 thông báo/trang
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ['is_read']  # Cho phép filter theo is_read
     
     def get_queryset(self):
-        return Notification.objects.filter(user=self.request.user).order_by('-created_at')
+        queryset = Notification.objects.filter(user=self.request.user).order_by('-created_at')
+        
+        # Hỗ trợ filter theo is_read từ query params
+        is_read = self.request.query_params.get('is_read', None)
+        if is_read is not None:
+            is_read_bool = is_read.lower() in ['true', '1', 'yes']
+            queryset = queryset.filter(is_read=is_read_bool)
+        
+        return queryset
     
     @action(detail=False, methods=['get'])
     def unread_count(self, request):

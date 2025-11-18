@@ -19,6 +19,7 @@ import {
 } from 'react-icons/fa';
 import './OrderHistory.css';
 import api from '../../../services/api';
+import { useNotification } from '../../../context/NotificationContext';
 
 const getStatusMeta = (status) => {
   switch (status) {
@@ -33,6 +34,7 @@ const getStatusMeta = (status) => {
 
 const OrderHistory = () => {
   const navigate = useNavigate();
+  const { success, error } = useNotification();
 
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -461,7 +463,7 @@ const OrderHistory = () => {
   
       setReviewOpen(false);
       setReviewItem(null);
-      alert('Đánh giá thành công. Cảm ơn bạn!');
+      success('Đánh giá thành công. Cảm ơn bạn!');
     } catch (e) {
       console.error('Submit review error:', e?.response?.data || e.message);
       
@@ -485,7 +487,7 @@ const OrderHistory = () => {
         }
       }
       
-      alert(errorMessage);
+      error(errorMessage);
     } finally {
       setSubmittingReview(false);
     }

@@ -7,14 +7,17 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny
 from rest_framework import status
-from django.db.models import Q
+from django.db.models import Q, Avg, Count
+from django.db import models
 from django.utils import timezone
 from django.conf import settings
 from django.core.cache import cache
 import uuid
 
-from ..models import Product, Promotion, Order, ChatbotConversation, ChatbotFeedback
+from ..models import Product, Promotion, Order, ChatbotConversation, ChatbotFeedback, ChatbotMetrics
 from .chatbot import footy_ai
+from django.utils.dateparse import parse_date
+from collections import defaultdict
 
 
 def get_full_image_url(image_path):
@@ -46,7 +49,7 @@ class AIChatView(APIView):
             if not message:
                 return Response({
                     "type": "message",
-                    "content": "Xin chào! Tôi là Footy, trợ lý mua sắm của FootFashion! 👋\n\nTôi có thể giúp bạn:\n🔍 Tìm kiếm giày dép\n💡 Gợi ý sản phẩm\n🎉 Xem khuyến mãi\n📦 Kiểm tra đơn hàng\n\nBạn cần gì nhé?",
+                    "content": "Chào bạn! Mình là Footy 👋\n\nMình giúp bạn:\n• Tìm giày phù hợp\n• Tư vấn sản phẩm\n• Check khuyến mãi\n• Tra đơn hàng\n\nBạn cần gì nào?",
                     "intent": "greeting",
                     "confidence": 0.9,
                     "timestamp": timezone.now().isoformat()
@@ -87,6 +90,9 @@ class AIChatView(APIView):
                 processing_time=response_data.get('processing_time', 0.0)
             )
             
+            # Update metrics
+            self._update_metrics(user_id, session_id, response_data)
+            
             # Cũng lưu vào cache để admin dashboard có thể truy cập nhanh
             cache_key = f"chat_log_{timezone.now().date()}"
             logs = cache.get(cache_key, [])
@@ -109,6 +115,84 @@ class AIChatView(APIView):
         except Exception as e:
             print(f"❌ Database logging error: {e}")
             # Không print traceback để tránh làm chậm response
+    
+    def _update_metrics(self, user_id, session_id, response_data):
+        """Update chatbot metrics for analytics"""
+        try:
+            today = timezone.now().date()
+            intent = response_data.get('intent', 'unknown')
+            confidence = response_data.get('confidence', 0.0)
+            processing_time = response_data.get('processing_time', 0.0)
+            
+            # Get or create metrics for today
+            metrics, created = ChatbotMetrics.objects.get_or_create(
+                date=today,
+                defaults={
+                    'total_interactions': 0,
+                    'unique_users': 0,
+                    'unique_sessions': 0,
+                    'product_searches': 0,
+                    'product_clicks': 0,
+                    'promotion_views': 0,
+                    'order_queries': 0,
+                    'positive_feedback': 0,
+                    'negative_feedback': 0,
+                    'avg_confidence_score': 0.0,
+                    'avg_processing_time': 0.0,
+                }
+            )
+            
+            # Update metrics
+            metrics.total_interactions += 1
+            
+            # Update unique users and sessions (simplified - in production, use better tracking)
+            if user_id:
+                # Track unique users (simplified)
+                metrics.unique_users = ChatbotConversation.objects.filter(
+                    created_at__date=today,
+                    user_id__isnull=False
+                ).values('user_id').distinct().count()
+            
+            if session_id:
+                # Track unique sessions
+                metrics.unique_sessions = ChatbotConversation.objects.filter(
+                    created_at__date=today,
+                    session_id__isnull=False
+                ).values('session_id').distinct().count()
+            
+            # Update intent-specific metrics
+            if intent == 'product_search':
+                metrics.product_searches += 1
+            elif intent == 'promotion':
+                metrics.promotion_views += 1
+            elif intent == 'order_status':
+                metrics.order_queries += 1
+            
+            # Update average confidence and processing time
+            total_convs = ChatbotConversation.objects.filter(created_at__date=today).count()
+            if total_convs > 0:
+                avg_conf = ChatbotConversation.objects.filter(
+                    created_at__date=today
+                ).aggregate(
+                    avg_conf=models.Avg('confidence_score')
+                )['avg_conf'] or 0.0
+                avg_time = ChatbotConversation.objects.filter(
+                    created_at__date=today
+                ).aggregate(
+                    avg_time=models.Avg('processing_time')
+                )['avg_time'] or 0.0
+                
+                metrics.avg_confidence_score = float(avg_conf)
+                metrics.avg_processing_time = float(avg_time)
+            
+            # Calculate conversion rate
+            metrics.calculate_conversion_rate()
+            
+            metrics.save()
+            
+        except Exception as e:
+            print(f"❌ Metrics update error: {e}")
+            # Don't fail if metrics update fails
 
 
 class AILogsView(APIView):
@@ -202,5 +286,47 @@ class AILogsView(APIView):
         except Exception as e:
             return Response({
                 "message": "Failed to add log",
+                "error": str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class AIFeedbackView(APIView):
+    """
+    API endpoint for user feedback on chatbot responses
+    Endpoint: /api/ai/feedback/
+    """
+    permission_classes = [AllowAny]
+    
+    def post(self, request):
+        """Submit feedback for a chatbot response"""
+        try:
+            user_id = str(request.user.id) if request.user.is_authenticated else None
+            session_id = request.data.get('session_id')
+            message = request.data.get('message', '')
+            response = request.data.get('response', '')
+            intent = request.data.get('intent', '')
+            feedback_type = request.data.get('feedback_type', '')  # 'positive' or 'negative'
+            
+            # Save feedback to database
+            feedback = ChatbotFeedback.objects.create(
+                user_id=user_id,
+                session_id=session_id,
+                message=message,
+                response=response,
+                intent=intent,
+                feedback_type=feedback_type,
+                created_at=timezone.now()
+            )
+            
+            return Response({
+                "message": "Feedback received successfully",
+                "feedback_id": feedback.id,
+                "status": "success"
+            })
+            
+        except Exception as e:
+            print(f"Feedback submission error: {e}")
+            return Response({
+                "message": "Failed to submit feedback",
                 "error": str(e)
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

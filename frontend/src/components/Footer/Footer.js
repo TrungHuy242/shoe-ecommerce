@@ -21,16 +21,16 @@ const Footer = () => {
           <h4>Liên kết nhanh</h4>
           <Link to="/">Trang chủ</Link>
           <Link to="/products">Sản phẩm</Link>
-          <Link to="/blog">Blog</Link>
-          <Link to="/contact">Liên hệ</Link>
+          <Link to="/deals">Khuyến mãi</Link>
+          <Link to="/cart">Giỏ hàng</Link>
         </div>
 
         <div className="footer-section policies">
           <h4>Chính sách</h4>
-          <Link to="/privacy">Bảo mật</Link>
-          <Link to="/terms">Điều khoản</Link>
-          <Link to="/return">Đổi trả</Link>
-          <Link to="/shipping">Vận chuyển</Link>
+          <a href="#" onClick={(e) => { e.preventDefault(); alert('Trang này đang được phát triển. Vui lòng liên hệ support@footfashion.vn để biết thêm chi tiết.'); }}>Bảo mật</a>
+          <a href="#" onClick={(e) => { e.preventDefault(); alert('Trang này đang được phát triển. Vui lòng liên hệ support@footfashion.vn để biết thêm chi tiết.'); }}>Điều khoản</a>
+          <a href="#" onClick={(e) => { e.preventDefault(); alert('Chính sách đổi trả: Khách hàng có thể đổi trả trong vòng 30 ngày kể từ ngày nhận hàng. Sản phẩm phải còn nguyên vẹn, chưa sử dụng. Liên hệ: support@footfashion.vn'); }}>Đổi trả</a>
+          <a href="#" onClick={(e) => { e.preventDefault(); alert('Phí vận chuyển: 30.000đ cho đơn hàng dưới 1.000.000đ. Miễn phí vận chuyển cho đơn hàng từ 1.000.000đ trở lên. Thời gian giao hàng: 3-5 ngày làm việc.'); }}>Vận chuyển</a>
         </div>
 
         <div className="footer-section contact">

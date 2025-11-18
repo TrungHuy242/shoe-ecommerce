@@ -214,19 +214,53 @@ const Checkout = () => {
     
     try {
       if (currentStep === 1) {
-        // Kiểm tra user có địa chỉ giao hàng không
+        // Nếu không có địa chỉ đã lưu, cho phép nhập địa chỉ mới ngay tại đây
         if (shippingAddresses.length === 0) {
-          error('Bạn cần thêm ít nhất một địa chỉ giao hàng trước khi đặt hàng');
-          // Redirect đến trang quản lý địa chỉ
-          setTimeout(() => {
-            navigate('/shipping-addresses', { state: { fromCheckout: true } });
-          }, 2000);
+          // Không redirect nữa, cho phép user nhập địa chỉ mới
+          // Chỉ cần validate form đã điền đủ chưa
+          if (!useCustomAddress) {
+            setUseCustomAddress(true); // Tự động bật form nhập địa chỉ mới
+          }
+          // Tiếp tục validate các trường đã điền
+        }
+        
+        // Validate shipping info với format check
+        if (!shippingInfo.fullName || !shippingInfo.fullName.trim()) {
+          error('Vui lòng nhập họ tên');
           return;
         }
         
-        // Validate shipping info
-        if (!shippingInfo.fullName || !shippingInfo.email || !shippingInfo.phone || !shippingInfo.address) {
-          error('Vui lòng điền đầy đủ thông tin giao hàng');
+        if (!shippingInfo.email || !shippingInfo.email.trim()) {
+          error('Vui lòng nhập email');
+          return;
+        }
+        
+        // Validate email format
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(shippingInfo.email.trim())) {
+          error('Email không hợp lệ. Vui lòng nhập đúng định dạng email');
+          return;
+        }
+        
+        if (!shippingInfo.phone || !shippingInfo.phone.trim()) {
+          error('Vui lòng nhập số điện thoại');
+          return;
+        }
+        
+        // Validate phone format (chỉ số, 10-11 ký tự)
+        const phoneRegex = /^[0-9]{10,11}$/;
+        if (!phoneRegex.test(shippingInfo.phone.replace(/\s+/g, ''))) {
+          error('Số điện thoại không hợp lệ. Vui lòng nhập 10-11 chữ số');
+          return;
+        }
+        
+        if (!shippingInfo.address || !shippingInfo.address.trim()) {
+          error('Vui lòng nhập địa chỉ giao hàng');
+          return;
+        }
+        
+        if (!shippingInfo.city || !shippingInfo.city.trim()) {
+          error('Vui lòng nhập tỉnh/thành phố');
           return;
         }
         setCurrentStep(2);
@@ -236,6 +270,48 @@ const Checkout = () => {
           error('Vui lòng chọn phương thức thanh toán');
           return;
         }
+        
+        // Validate card info nếu chọn card payment
+        if (paymentMethod === 'card') {
+          if (!paymentInfo.cardNumber || !paymentInfo.cardNumber.trim()) {
+            error('Vui lòng nhập số thẻ');
+            return;
+          }
+          // Validate card number (chỉ số, 13-19 chữ số)
+          const cardNumber = paymentInfo.cardNumber.replace(/\s+/g, '');
+          if (!/^[0-9]{13,19}$/.test(cardNumber)) {
+            error('Số thẻ không hợp lệ. Vui lòng nhập 13-19 chữ số');
+            return;
+          }
+          
+          if (!paymentInfo.expiryDate || !paymentInfo.expiryDate.trim()) {
+            error('Vui lòng nhập ngày hết hạn (MM/YY)');
+            return;
+          }
+          
+          // Validate expiry date format (MM/YY)
+          if (!/^(0[1-9]|1[0-2])\/\d{2}$/.test(paymentInfo.expiryDate.trim())) {
+            error('Ngày hết hạn không hợp lệ. Vui lòng nhập theo định dạng MM/YY (ví dụ: 12/25)');
+            return;
+          }
+          
+          if (!paymentInfo.cvv || !paymentInfo.cvv.trim()) {
+            error('Vui lòng nhập CVV');
+            return;
+          }
+          
+          // Validate CVV (3-4 chữ số)
+          if (!/^[0-9]{3,4}$/.test(paymentInfo.cvv.trim())) {
+            error('CVV không hợp lệ. Vui lòng nhập 3-4 chữ số');
+            return;
+          }
+          
+          if (!paymentInfo.cardName || !paymentInfo.cardName.trim()) {
+            error('Vui lòng nhập tên chủ thẻ');
+            return;
+          }
+        }
+        
         setCurrentStep(3);
       }
     } catch (err) {
@@ -484,7 +560,8 @@ const Checkout = () => {
       });
     } catch (e) {
       console.error('Place order error:', e?.response?.data || e.message);
-      alert((e?.response?.data?.detail) || 'Đặt hàng thất bại. Vui lòng thử lại.');
+      const errorMsg = e?.response?.data?.detail || e?.response?.data?.message || 'Đặt hàng thất bại. Vui lòng thử lại.';
+      error(errorMsg);
     } finally {
       setLoading(false);
     }
